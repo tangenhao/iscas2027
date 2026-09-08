@@ -2,16 +2,4 @@
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper presents an algorithm--hardware co-design for efficient video
-diffusion inference. At the algorithm level, QAC addresses the
-decision-domain mismatch introduced by naively combining timestep caching
-with low-precision execution, aligning cache decisions with the quantized
-trajectory. At the hardware level, a dimension-elastic row-wise PEA addresses
-the matrix-axis asymmetry of spatial/temporal attention through output-lane
-partitioning for $QK^{\mathsf T}$ and boundary-aware segmented reduction for
-$PV$. Evaluated on \ModelName{}, the proposed design achieves
-\QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline and
-\EtoESpeedup{} end-to-end speedup with \AreaOverhead{} area overhead. These
-results demonstrate that numerical-domain alignment and dimension-aware
-microarchitecture are complementary for efficient low-precision video
-diffusion inference.
+This paper presents Q-DARE, an algorithm--hardware co-design for efficient video diffusion inference. QAC addresses the decision-domain mismatch introduced by naively combining timestep caching with low-precision execution, aligning cache decisions with the quantized trajectory. DARE addresses the matrix-axis asymmetry of spatial/temporal attention through output-lane adaptation for $QK^{\mathsf T}$ and boundary-aware segmented reduction for $PV$ on a shared PEA. Evaluated on \ModelName{}, Q-DARE achieves \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline and \EtoESpeedup{} end-to-end speedup with \AreaOverhead{} area overhead. These results show that numerical-domain alignment and dimension-adaptive execution are complementary for efficient low-precision video diffusion inference.

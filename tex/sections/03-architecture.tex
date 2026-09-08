@@ -1,84 +1,35 @@
 % !TEX root = ../main.tex
-\section{Dimension-Elastic Row-Wise Accelerator}
+\section{DARE: Dimension-Adaptive Reconfigurable Engine}
 \label{sec:hardware}
 
-\subsection{Architecture Overview}
+As illustrated in the lower path of Fig.~\ref{fig:overview}, factorized spatial/temporal attention exposes a \emph{matrix-axis mismatch}: the variable sequence dimension $L$ maps to the output axis of $QK^{\mathsf T}$ but to the reduction axis of $PV$. For the default \ModelName{} workload, $L$ alternates between $S=\SpatialSeq{}$ and $T=\TemporalSeq{}$. Under CFG, this yields \SpatialContexts{} spatial contexts and \TemporalContexts{} temporal contexts, i.e., temporal attention exposes $27\times$ more independent contexts that are $27\times$ shorter. DARE therefore reconfigures the same $36\times36$ INT8 PEA along these two axes rather than provisioning separate datapaths.
+
+The baseline PEA contains 36 output lanes, each with a 36-product INT8 dot product. Channel dimensions are naturally aligned: $d=72=2\times36$ and the STDiT hidden dimension is $1152=32\times36$. Hence the dominant inefficiency comes from the variable spatial/temporal token dimension rather than from the channel dimension.
 
 \begin{figure}[t]
   \centering
-  \placeholderfig{1.02in}{
-  \textbf{Fig. 3 placeholder: RTL architecture.}\\
-  Draw Load/AGU + IFMAP SRAM + Weight SRAM $\rightarrow$ 36$\times$36 INT8 PEA
-  $\rightarrow$ row-wise softmax/VCU $\rightarrow$ OFMAP SRAM.
-  Highlight two reconfiguration controls:
-  (1) $QK$: 4-head$\times$9-lane partition;
-  (2) $PV$: segmented reduction boundaries.
-  Show stride fields selecting spatial vs temporal access.}
-  \caption{The proposed accelerator reuses one row-wise PEA for $QK^{\mathsf T}$ and $PV$ while
-  adapting the output and reduction dimensions independently.}
-  \label{fig:arch}
+  \placeholderfig{0.95in}{
+  \textbf{Fig. 2 placeholder: dual-axis adaptation in DARE.}\\[1pt]
+  (a) $QK^{\mathsf T}$: baseline 36 lanes/head $\rightarrow$ four 9-lane head groups.\\
+  (b) $PV$: padded variable-length reductions $\rightarrow$ continuous product stream with segment tags and boundary-aware reduction.}
+  \caption{DARE adapts the same PEA along the output axis for $QK^{\mathsf T}$ and the reduction axis for $PV$.}
+  \label{fig:dare_detail}
 \end{figure}
 
-The baseline PEA contains 36 output lanes, each with a 36-product INT8 dot
-product. Channel dimensions are naturally aligned: $d=72=2\times36$ and the
-STDiT hidden dimension is $1152=32\times36$. Hence the dominant mismatch is
-not the channel dimension, but the variable spatial/temporal token dimension.
+\subsection{Output-Axis Adaptation for $QK^{\mathsf T}$}
 
-\subsection{Output-Axis Elasticity for $QK^{\mathsf T}$}
-
-A conventional mapping assigns all 36 output lanes to one attention head.
-For temporal attention, only 15 lanes carry useful scores, giving
-$15/36=\BaseTemporalQKUtil{}$ utilization. The proposed PEA partitions the array into
-four independent 9-lane head groups:
+A conventional mapping assigns all 36 output lanes to one attention head. For temporal attention, only 15 lanes carry useful scores, giving $15/36=\BaseTemporalQKUtil{}$ utilization. DARE partitions the array into four independent 9-lane head groups:
 \begin{equation}
-36\ \text{lanes} \rightarrow
-4\ \text{heads}\times 9\ \text{lanes/head}.
+36\ \text{lanes} \rightarrow 4\ \text{heads}\times 9\ \text{lanes/head}.
 \end{equation}
-For $T=15$, each head completes in two 9-lane groups, increasing temporal
-utilization to $15/18=\OursTemporalQKUtil{}$. For $S=405$, $405/9=45$
-exactly, eliminating the spatial tail and reaching \OursSpatialQKUtil{}.
+For $T=15$, each head completes in two 9-lane groups, increasing temporal utilization to $15/18=\OursTemporalQKUtil{}$. For $S=405$, $405/9=45$ exactly, eliminating the spatial tail and reaching \OursSpatialQKUtil{}.
 
-\subsection{Reduction-Axis Elasticity for $PV$}
+\subsection{Boundary-Aware Segmented Reduction for $PV$}
 
-In $PV$, the same sequence length $L$ becomes the reduction dimension. Padding
-each short temporal dot product to 36 wastes multipliers. The proposed PEA instead treats
-successive dot products as a continuous product stream. Each 36-product beat
-carries reduction-boundary metadata; every reduction-tree node propagates a
-segment tag and only adds neighboring values with identical tags. Different
-segments are compacted without being mixed, and completed reductions are
-committed while an unfinished tail is accumulated into the next beat.
+In $PV$, the same sequence length $L$ becomes the reduction dimension. Padding each short reduction to 36 products wastes multipliers. DARE instead treats successive dot products as a continuous product stream. Each 36-product beat carries reduction-boundary metadata; every reduction-tree node propagates a segment tag and only accumulates neighboring values with identical tags. Completed segments are committed immediately, while an unfinished tail is carried into the next beat. This converts padding bubbles into useful products from adjacent reductions without mixing independent outputs.
 
-\begin{figure}[t]
-  \centering
-  \placeholderfig{0.82in}{
-  \textbf{Fig. 4 placeholder: Segmented reduction.}\\
-  Baseline: [15 valid | 21 pad] per dot product.\\
-  Proposed co-design: continuous 36-product stream crossing boundaries:
-  [tail of R0 | R1 | head of R2] $\rightarrow$ tag-aware tree
-  $\rightarrow$ completed R0/R1 + partial R2.\\
-  Add a small variable-$T$ latency/utilization curve after measurements.}
-  \caption{Boundary-aware segmented reduction converts padding bubbles into
-  useful products from adjacent dot products.}
-  \label{fig:segred}
-\end{figure}
+% IMPLEMENTATION CHECK BEFORE FINAL SUBMISSION:
+% The current segmented temporal PV RTL must support/verify the default T=15
+% path before claiming default-workload PV speedup in the paper.
 
-% CRITICAL IMPLEMENTATION CHECK:
-% Current uploaded RTL enables the segmented temporal mode only for T >= 18.
-% The default Open-Sora v1.2 T=15 path must be completed (e.g., a short-T
-% two-reduction packing mode) before replacing the placeholders below.
-For the final RTL, report both multiplier utilization and cycle reduction over
-a sweep of temporal lengths:
-\begin{equation}
-T\in\{\textbf{[5, 10, 15, 20, 25, 30, 36]}\}.
-\end{equation}
-The default $T=15$ point should report \PVTemporalUtilGain{} and
-\PVTemporalSpeedup{} only after the short-$T$ mode is functionally verified.
-
-\subsection{Stride-Programmable Spatial/Temporal Access}
-
-STDiT alternates logical $[T,S,C]$ and $[S,T,C]$ traversal. The proposed design does not
-physically reshape the activation tensor. Instead, the load instructions
-program the AXI/SRAM address stride to select the required logical axis. This
-mechanism is presented as a supporting feature rather than a standalone
-contribution; its purpose is to feed both PEA modes without extra data
-movement.
+To feed both execution modes without explicit tensor reshaping, the load unit uses stride-programmable address generation for the logical $[T,S,C]$ and $[S,T,C]$ views. This supporting mechanism changes only address traversal and does not require an additional activation-reshaping buffer.
