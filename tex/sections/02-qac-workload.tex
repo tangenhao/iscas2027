@@ -1,0 +1,85 @@
+% !TEX root = ../main.tex
+\section{Quantization-Aligned Caching and Workload Characterization}
+\label{sec:characterization}
+
+\subsection{Quantization-Aligned Caching}
+\label{sec:qac}
+
+Let $F_t$ denote the low-cost feature used by a timestep-cache policy before
+the expensive STDiT computation at step $t$. A conventional cache indicator
+can be expressed as a normalized feature variation
+\begin{equation}
+d_t^{\mathrm{FP}}=
+\frac{\lVert F_t-F_{t-1}\rVert_1}
+     {\lVert F_{t-1}\rVert_1+\epsilon}.
+\label{eq:fp_indicator}
+\end{equation}
+The cache predictor is calibrated to map $d_t^{\mathrm{FP}}$ to the expected
+change of a full-precision model. When the actual recompute path is quantized,
+this predictor is no longer aligned with the executed numerical trajectory.
+
+QAC instead forms the indicator from the quantized representation
+$\widetilde F_t=D(Q_s(F_t))$, where $Q_s$ and $D$ denote quantization and
+dequantization using the calibrated scale $s$:
+\begin{equation}
+d_t^{\mathrm{Q}}=
+\frac{\lVert \widetilde F_t-\widetilde F_{t-1}\rVert_1}
+     {\lVert \widetilde F_{t-1}\rVert_1+\epsilon}.
+\label{eq:q_indicator}
+\end{equation}
+An offline calibration run fits a lightweight mapping
+$g_q(d_t^{\mathrm{Q}},t)$ to the actual output variation of the W8A8/INT8
+model. At runtime, the predicted variation is accumulated using the same
+thresholded reuse rule as timestep caching. Thus, QAC changes only
+\emph{when} a step is recomputed; all recompute steps retain the same
+hardware-friendly fixed precision. QAC uses the same calibrated quantizer as the recompute path, limiting the
+additional runtime cost to \QACOverhead{}.
+
+\begin{table}[t]
+\centering
+\caption{Algorithm-level quality and cache efficiency on \ModelName{}.}
+\label{tab:quality}
+\setlength{\tabcolsep}{3.0pt}
+\begin{tabular}{lccc}
+\toprule
+Method & Precision & Cache ratio & VBench \\
+\midrule
+16-bit baseline & 16/16 & 0 & \BaselineVBench \\
+ViDiT-Q~\cite{zhao2025viditq} & 8/8 & 0 & \QuantOnlyVBench \\
+TeaCache~\cite{liu2025teacache} & 16/16 & [X] & \TeaCacheVBench \\
+Naive Cache+Quant & 8/8 & \BaseCacheRatio & \NaiveCQVBench \\
+QAC (ours) & 8/8 & \QACCacheRatio & \QACVBench \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Axis-Induced Matrix Asymmetry}
+\label{sec:axis_asym}
+
+For the default workload, $T=\TemporalSeq{}$, $S=\SpatialSeq{}$, and
+$d=72$. Spatial attention forms $BT=\SpatialContexts{}$ contexts of length
+$S$, whereas temporal attention forms $BS=\TemporalContexts{}$ contexts of
+length $T$. Hence the same attention block alternates between two reciprocal
+execution regimes: temporal attention exposes $27\times$ more independent
+contexts, but each context is $27\times$ shorter.
+
+\begin{table}[t]
+\centering
+\caption{Default Open-Sora v1.2 attention shapes under CFG.}
+\label{tab:shape}
+\setlength{\tabcolsep}{4.0pt}
+\begin{tabular}{lccc}
+\toprule
+Mode & Contexts & Seq. $L$ & Baseline $QK$ util. \\
+\midrule
+Spatial & \SpatialContexts & \SpatialSeq & \BaseSpatialQKUtil \\
+Temporal & \TemporalContexts & \TemporalSeq & \BaseTemporalQKUtil \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Because our attention is row-wise fused, a complete $L\times L$ attention map
+is never materialized. The hardware problem is instead \emph{shape
+fragmentation}: $L$ maps to output lanes in $QK^{\mathsf T}$ but to reduction
+lanes in $PV$. This observation motivates a PEA that can adapt both
+parallelism axes without duplicating the arithmetic datapath.
