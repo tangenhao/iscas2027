@@ -102,8 +102,9 @@
   \fbox{\parbox[c][#1][c]{0.96\linewidth}{\centering\small #2}}%
 }
 
-\title{Quantization-Aligned Caching and Dimension-Elastic\\
-Acceleration for Video Diffusion Transformers}
+\title{Q-DARE: Quantization-Aligned Caching with\\
+Dimension-Adaptive Reconfigurable Execution for\\
+Video Diffusion Transformers}
 
 % \author{
 % \IEEEauthorblockN{Anonymous Author(s) / \TODO{replace with author list}}
@@ -113,43 +114,43 @@ Acceleration for Video Diffusion Transformers}
 \begin{document}
 \maketitle
 
+% \begin{abstract}
+% Video Diffusion Transformers (VDiTs) achieve compelling spatiotemporal
+% generation quality at the cost of expensive iterative denoising. Caching and
+% low-bit quantization exploit inter-step and numerical redundancy,
+% respectively; however, their direct composition exposes two coupled
+% inefficiencies. First, conventional cache indicators are derived from
+% full-precision feature variation, whereas recomputed steps follow a quantized
+% trajectory, causing a \emph{decision-domain mismatch}. Second, factorized
+% spatial/temporal attention produces highly asymmetric matrix dimensions that
+% fragment fixed-width processing-element arrays. To address these problems,
+% this paper proposes a cross-layer co-design with
+% \emph{quantization-aligned caching} (QAC) and a
+% \emph{dimension-elastic row-wise PEA}. QAC aligns cache decisions with
+% quantized execution by calibrating the reuse predictor to block-residual
+% variation observed under the quantized model, mitigating decision-domain
+% mismatch and enabling more reliable timestep reuse. The
+% proposed PEA dynamically adapts arithmetic parallelism to the active
+% attention dimension through output-lane partitioning for $QK^{\mathsf T}$
+% and boundary-aware segmented reduction for $PV$, mitigating shape
+% fragmentation and padding inefficiency across spatial and temporal attention
+% without duplicating the arithmetic datapath. Evaluations on \ModelName{}
+% achieve \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline.
+% RTL implementation in \TechNode{} delivers \EtoESpeedup{} end-to-end speedup
+% and \EnergyGain{} energy-efficiency improvement with \AreaOverhead{} area
+% overhead.
+% \end{abstract}
+
 \begin{abstract}
-Video Diffusion Transformers (VDiTs) achieve compelling spatiotemporal
-generation quality at the cost of expensive iterative denoising. Caching and
-low-bit quantization exploit inter-step and numerical redundancy,
-respectively; however, their direct composition exposes two coupled
-inefficiencies. First, conventional cache indicators are derived from
-full-precision feature variation, whereas recomputed steps follow a quantized
-trajectory, causing a \emph{decision-domain mismatch}. Second, factorized
-spatial/temporal attention produces highly asymmetric matrix dimensions that
-fragment fixed-width processing-element arrays. To address these problems,
-this paper proposes a cross-layer co-design with
-\emph{quantization-aligned caching} (QAC) and a
-\emph{dimension-elastic row-wise PEA}. QAC aligns cache decisions with
-quantized execution by calibrating the reuse predictor to block-residual
-variation observed under the quantized model, mitigating decision-domain
-mismatch and enabling more reliable timestep reuse. The
-proposed PEA dynamically adapts arithmetic parallelism to the active
-attention dimension through output-lane partitioning for $QK^{\mathsf T}$
-and boundary-aware segmented reduction for $PV$, mitigating shape
-fragmentation and padding inefficiency across spatial and temporal attention
-without duplicating the arithmetic datapath. Evaluations on \ModelName{}
-achieve \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline.
-RTL implementation in \TechNode{} delivers \EtoESpeedup{} end-to-end speedup
-and \EnergyGain{} energy-efficiency improvement with \AreaOverhead{} area
-overhead.
+Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, improving indicator correlation from \FPIndicatorCorr{} to \QIndicatorCorr{} and cache reuse from \BaseCacheRatio{} to \QACCacheRatio{} at matched generation quality. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On \ModelName{}, Q-DARE achieves \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline. RTL implementation in \TechNode{} delivers \EtoESpeedup{} end-to-end speedup and \EnergyGain{} higher energy efficiency with \AreaOverhead{} area overhead.
 \end{abstract}
 
 
 % Figure 1: full-width overview supplied as a PDF artwork.
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{../fig/overview.pdf}
-  \caption{Overview of the proposed algorithm--hardware co-design. Quantization
-  changes the numerical domain in which cache relevance should be evaluated,
-  while factorized spatial/temporal attention changes the matrix axis on which
-  parallelism becomes irregular. QAC and the dimension-elastic PEA address
-  these two mismatches jointly.}
+  \includegraphics[width=\textwidth]{fig/overview.pdf}
+  \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
   \label{fig:overview}
 \end{figure*}
 
