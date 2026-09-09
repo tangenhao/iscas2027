@@ -1,34 +1,6 @@
 % ======================================================================
 % Working draft for IEEE ISCAS 2027
-%
-% IMPORTANT TEMPLATE NOTE (2026-08-26):
-% The ISCAS 2027 regular-paper submission page is online, but the detailed
-% 2027 author kit/template has not yet been published. This draft therefore
-% follows the latest publicly available ISCAS 2026 author instructions:
-% IEEE conference format, 4 pages of technical content + optional 5th page
-% containing references only. Replace only the class/template wrapper if the
-% 2027 author kit introduces any formatting change after submissions open.
-%
-% Working title intentionally avoids an acronym because "DiVE/DIVE" is already
-% used by multiple video-diffusion works.
-%
-% Paper positioning:
-%   - Algorithm novelty: Quantization-Aligned Caching (QAC). The cache indicator
-%     is evaluated/calibrated in the same quantized numerical domain as the
-%     recompute path, addressing decision-domain mismatch in naive Cache+Quant.
-%   - Hardware novelty: a dimension-elastic row-wise PEA:
-%       (1) output-axis elasticity for QK^T via 4-head x 9-lane partitioning;
-%       (2) reduction-axis elasticity for PV via boundary-aware segmented reduction.
-%   - Current RTL note: segmented temporal PV mode is enabled for T >= 18.
-%     The Open-Sora v1.2 default T=15 short-T path must be finalized before
-%     claiming default-workload PV improvement in the final paper.
-% ======================================================================
-% IMPLEMENTATION NOTE (2026-09-03):
-% 28-nm DC synthesis values now inserted: 4.2624 mm^2, 116.372 mW,
-% 1 GHz, 1296 INT8 + 36 FP16 MACs, 238.5 KB SRAM, 256 GB/s (8 DMA channels).
-% Performance is modeled by a cycle-level performance simulator.
-% Preliminary 7-nm normalization: 0.134 mm^2, 43.6 mW, Fmax=1.264 GHz.
-% Before submission, verify whether the 28-nm area includes SRAM macros.
+% Clean wording version: no custom numerical/result macros.
 % ======================================================================
 
 \documentclass[conference]{IEEEtran}
@@ -41,112 +13,22 @@
 \usepackage{array}
 \usepackage{url}
 
-% ----------------------- Known values / placeholders --------------------
-\newcommand{\ModelName}{Open-Sora v1.2}
-\newcommand{\BaselineVBench}{76.77}
-\newcommand{\QuantOnlyVBench}{76.79}
-\newcommand{\TeaCacheVBench}{75.88}
-\newcommand{\NaiveCQVBench}{76.61}
-\newcommand{\QACVBench}{\textbf{[QAC-VBENCH]}}
-
-\newcommand{\SpatialSeq}{405}
-\newcommand{\TemporalSeq}{15}
-\newcommand{\SpatialContexts}{30}
-\newcommand{\TemporalContexts}{810}
-
-\newcommand{\BaseSpatialQKUtil}{93.75\%}
-\newcommand{\OursSpatialQKUtil}{100\%}
-\newcommand{\BaseTemporalQKUtil}{41.67\%}
-\newcommand{\OursTemporalQKUtil}{83.33\%}
-
-% Algorithm placeholders: fill after QAC characterization.
-\newcommand{\FPIndicatorCorr}{\textbf{[$\rho_{\mathrm{FP}}$]}}
-\newcommand{\QIndicatorCorr}{\textbf{[$\rho_{\mathrm{Q}}$]}}
-\newcommand{\BaseCacheRatio}{\textbf{[BASE-CACHE-RATIO]}}
-\newcommand{\QACCacheRatio}{\textbf{[QAC-CACHE-RATIO]}}
-\newcommand{\QACOverhead}{\textbf{[QAC-OVERHEAD]}}
-
-% Known implementation parameters.
-\newcommand{\TechNode}{TSMC 28\,nm}
-\newcommand{\Frequency}{1\,GHz}
-\newcommand{\SRAMCapacity}{238.5\,KB}
-\newcommand{\MemoryBandwidth}{256\,GB/s}
-\newcommand{\DMAChannels}{8}
-\newcommand{\INTEightMACs}{1296}
-\newcommand{\FPSixteenMACs}{36}
-\newcommand{\AreaTwentyEight}{4.2624\,mm$^2$}
-\newcommand{\PowerTwentyEight}{116.372\,mW}
-\newcommand{\AreaSevenNorm}{0.134\,mm$^2$}
-\newcommand{\PowerSevenNorm}{43.6\,mW}
-\newcommand{\FmaxSevenNorm}{1.264\,GHz}
-\newcommand{\AreaScaleFactor}{31.818}
-\newcommand{\DelayScaleFactor}{1.264}
-\newcommand{\PowerScaleFactor}{2.667}
-
-% Fill after final RTL/simulator measurements.
-\newcommand{\AreaOverhead}{\textbf{[AREA\%]}}
-\newcommand{\PowerOverhead}{\textbf{[POWER\%]}}
-\newcommand{\AttentionSpeedup}{\textbf{[ATTN-SPEEDUP$\times$]}}
-\newcommand{\STDiTSpeedup}{\textbf{[STDIT-SPEEDUP$\times$]}}
-\newcommand{\EtoESpeedup}{\textbf{[E2E-SPEEDUP$\times$]}}
-\newcommand{\EnergyGain}{\textbf{[ENERGY-EFF.$\times$]}}
-\newcommand{\QuantStepSpeedup}{\textbf{[QUANT-STEP-SPEEDUP$\times$]}}
-\newcommand{\PVTemporalUtilGain}{\textbf{[PV-UTIL: XX\%$\rightarrow$YY\%]}}
-\newcommand{\PVTemporalSpeedup}{\textbf{[PV-SPEEDUP$\times$]}}
-
-% Use compact TODO markers while drafting; remove before submission.
-\newcommand{\TODO}[1]{\textcolor{red}{\textbf{[TODO: #1]}}}
-
-% Compile-safe figure placeholder. Replace with \includegraphics in final.
-\newcommand{\placeholderfig}[2]{%
-  \fbox{\parbox[c][#1][c]{0.96\linewidth}{\centering\small #2}}%
-}
-
-\title{Q-DARE: Quantization-Aligned Caching with\\
-Dimension-Adaptive Reconfigurable Execution for\\
+\title{Q-DARE: Quantization-Aligned Caching with a\\
+Dimension-Adaptive Reconfigurable Engine for\\
 Video Diffusion Transformers}
 
 % \author{
-% \IEEEauthorblockN{Anonymous Author(s) / \TODO{replace with author list}}
-% \IEEEauthorblockA{\TODO{affiliation and email}}
+% \IEEEauthorblockN{Anonymous Author(s)}
+% \IEEEauthorblockA{Affiliation and email}
 % }
 
 \begin{document}
 \maketitle
 
-% \begin{abstract}
-% Video Diffusion Transformers (VDiTs) achieve compelling spatiotemporal
-% generation quality at the cost of expensive iterative denoising. Caching and
-% low-bit quantization exploit inter-step and numerical redundancy,
-% respectively; however, their direct composition exposes two coupled
-% inefficiencies. First, conventional cache indicators are derived from
-% full-precision feature variation, whereas recomputed steps follow a quantized
-% trajectory, causing a \emph{decision-domain mismatch}. Second, factorized
-% spatial/temporal attention produces highly asymmetric matrix dimensions that
-% fragment fixed-width processing-element arrays. To address these problems,
-% this paper proposes a cross-layer co-design with
-% \emph{quantization-aligned caching} (QAC) and a
-% \emph{dimension-elastic row-wise PEA}. QAC aligns cache decisions with
-% quantized execution by calibrating the reuse predictor to block-residual
-% variation observed under the quantized model, mitigating decision-domain
-% mismatch and enabling more reliable timestep reuse. The
-% proposed PEA dynamically adapts arithmetic parallelism to the active
-% attention dimension through output-lane partitioning for $QK^{\mathsf T}$
-% and boundary-aware segmented reduction for $PV$, mitigating shape
-% fragmentation and padding inefficiency across spatial and temporal attention
-% without duplicating the arithmetic datapath. Evaluations on \ModelName{}
-% achieve \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline.
-% RTL implementation in \TechNode{} delivers \EtoESpeedup{} end-to-end speedup
-% and \EnergyGain{} energy-efficiency improvement with \AreaOverhead{} area
-% overhead.
-% \end{abstract}
-
 \begin{abstract}
-Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, improving indicator correlation from \FPIndicatorCorr{} to \QIndicatorCorr{} and cache reuse from \BaseCacheRatio{} to \QACCacheRatio{} at matched generation quality. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On \ModelName{}, Q-DARE achieves \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline. RTL implementation in \TechNode{} delivers \EtoESpeedup{} end-to-end speedup and \EnergyGain{} higher energy efficiency with \AreaOverhead{} area overhead.
+Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, improving indicator correlation from \textbf{[TBD]} to \textbf{[TBD]} and cache reuse from \textbf{[TBD]} to \textbf{[TBD]} at matched generation quality. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On Open-Sora v1.2, Q-DARE achieves a VBench score of \textbf{[TBD]} versus 76.77 for the 16-bit baseline. RTL implementation in TSMC 28\,nm delivers \textbf{[TBD]}$\times$ end-to-end speedup and \textbf{[TBD]}$\times$ higher energy efficiency with \textbf{[TBD]}\% area overhead.
 \end{abstract}
 
-
-% Figure 1: full-width overview supplied as a PDF artwork.
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{fig/overview.pdf}

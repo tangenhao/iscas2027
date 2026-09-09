@@ -3,99 +3,30 @@
 \label{sec:qac}
 
 \subsection{Decision-Domain Mismatch}
-
-Let $F_t$ denote the low-cost feature used by a timestep-cache policy before
-the expensive STDiT computation at denoising step $t$. A conventional cache
-indicator measures the normalized variation of this feature in the
-full-precision (FP) domain:
+Let $F_t$ denote the low-cost feature used by the timestep-cache policy before executing the expensive STDiT at denoising step $t$. Conventional caching measures its normalized full-precision (FP) variation,
 \begin{equation}
  d_t^{\mathrm{FP}}=
  \frac{\lVert F_t-F_{t-1}\rVert_1}
       {\lVert F_{t-1}\rVert_1+\epsilon}.
  \label{eq:fp_indicator}
 \end{equation}
-The cache predictor then maps $d_t^{\mathrm{FP}}$ to the expected effect of
-skipping the current STDiT evaluation. This assumption is appropriate when
-both calibration and recomputation follow the same FP trajectory, but it is
-not guaranteed after the recompute path is replaced by fixed W8A8/INT8
-execution.
-
-To make this distinction explicit, let $Y_t^{\mathrm{Q}}$ denote the output
-obtained by recomputing step $t$ with the quantized STDiT, and let
-\begin{equation}
- r_t^{\mathrm{Q}} = \Delta\!\left(Y_t^{\mathrm{Q}},Y_{t-1}^{\mathrm{Q}}\right)
- \label{eq:q_output_variation}
-\end{equation}
-denote the output-variation target used by cache calibration. Here
-$\Delta(\cdot,\cdot)$ denotes the same output-change metric used by the QAC
-calibration procedure. Because quantization contains rounding, clipping, and
-piecewise-constant regions, the ordering induced by $d_t^{\mathrm{FP}}$ need
-not be preserved in $r_t^{\mathrm{Q}}$: an FP change may be suppressed by
-quantization, while a small FP perturbation may cross a quantization boundary.
-Consequently, a predictor calibrated in the FP domain can mis-rank the
-recomputation importance of adjacent denoising steps. We refer to this
-misalignment as the \emph{decision-domain mismatch}.
-
-% TODO before final submission: replace \Delta with the exact output-variation
-% metric used by the QAC calibration implementation if a concrete normalized
-% L1/L2 definition is available.
+The predictor is calibrated under FP execution, whereas the actual recompute path follows fixed W8A8/INT8 execution. Rounding, clipping, and piecewise-constant quantization regions can suppress a visible FP change or make a small change cross a quantization boundary. Hence the ordering induced by $d_t^{\mathrm{FP}}$ need not match recomputation importance on the quantized trajectory. We refer to this misalignment as the \emph{decision-domain mismatch}.
 
 \subsection{Quantization-Aligned Indicator}
-
-QAC removes this mismatch by evaluating cache relevance in the same numerical
-domain as the recompute path. Using the calibrated quantizer scale $s$, we
-first form
+QAC evaluates cache relevance in the same numerical domain as the recompute path. With frozen quantizer scale $s$, it forms
 \begin{equation}
- \widetilde F_t = D\!\left(Q_s(F_t)\right),
- \label{eq:q_feature}
-\end{equation}
-where $Q_s(\cdot)$ and $D(\cdot)$ denote quantization and dequantization,
-respectively. The quantization-aligned indicator is then
-\begin{equation}
+ \widetilde F_t=D(Q_s(F_t)),\qquad
  d_t^{\mathrm{Q}}=
  \frac{\lVert \widetilde F_t-\widetilde F_{t-1}\rVert_1}
-      {\lVert \widetilde F_{t-1}\rVert_1+\epsilon}.
+      {\lVert \widetilde F_{t-1}\rVert_1+\epsilon},
  \label{eq:q_indicator}
 \end{equation}
-Unlike $d_t^{\mathrm{FP}}$, $d_t^{\mathrm{Q}}$ is computed from the numerical
-representation seen by the low-precision model. QAC reuses the same calibrated
-quantizer as the W8A8/INT8 recompute path rather than introducing a separate
-precision mode or an auxiliary correction network. Thus, quantization affects
-both the executed arithmetic and the signal used to decide whether that
-arithmetic should be executed.
+where $Q_s(\cdot)$ and $D(\cdot)$ denote quantization and dequantization. The same calibrated quantizer is therefore used both to execute the model and to decide whether execution is needed. QAC introduces neither a separate precision mode nor an auxiliary correction network: every recomputed GEMM and attention operator remains on the fixed W8A8/INT8 datapath.
 
-This design choice is also important for the hardware co-design. QAC changes
-\emph{when} a denoising step is recomputed, but does not change the precision
-of a recomputed step: all executed GEMM and attention operations remain on the
-same fixed W8A8/INT8 datapath. The accelerator therefore does not need to
-support step-dependent mixed-precision switching to exploit timestep reuse.
-
-\subsection{Calibration and Runtime Cache Policy}
-
-During offline calibration, QAC collects the quantization-aligned indicator
-and the corresponding quantized-model output variation, forming samples of
-$(d_t^{\mathrm{Q}},t,r_t^{\mathrm{Q}})$. A lightweight mapping
+\subsection{Calibration and Runtime Policy}
+Offline calibration pairs $d_t^{\mathrm{Q}}$ with the observed output change of the quantized model and fits a lightweight timestep-aware mapping
 \begin{equation}
- \widehat r_t^{\mathrm{Q}} = g_q\!\left(d_t^{\mathrm{Q}},t\right)
+ \widehat r_t^{\mathrm{Q}}=g_q(d_t^{\mathrm{Q}},t).
  \label{eq:qac_mapping}
 \end{equation}
-is fitted to predict the recomputation significance along the quantized
-trajectory. Including the denoising step $t$ allows the mapping to account for
-the fact that the same local feature variation may have different effects at
-different stages of the diffusion trajectory.
-
-At runtime, the low-cost feature $F_t$ is available before the expensive STDiT
-computation. QAC quantizes this feature with the frozen calibration scale,
-computes $d_t^{\mathrm{Q}}$, and evaluates $g_q$. The resulting predicted
-variation is consumed by the same thresholded reuse policy as the baseline
-timestep cache: the step is reused while the accumulated predicted variation
-remains within the cache budget, and a recomputation is triggered when the
-policy requires the cached state to be refreshed. Therefore, QAC modifies the
-indicator and its calibration target while preserving the original cache
-controller semantics and the fixed-precision recompute path. Its additional
-runtime cost is limited to \QACOverhead{}.
-
-% TODO before final submission: specify the exact functional form of g_q and
-% the precise accumulator/reset rule used by the implementation. The current
-% repository text only states that g_q(d_Q,t) is a lightweight offline-fitted
-% mapping consumed by the same thresholded timestep-cache rule.
+At runtime, QAC computes $d_t^{\mathrm{Q}}$ before STDiT execution, evaluates $g_q$, and feeds the predicted change to the baseline thresholded cache rule. Cached states are reused while the accumulated predicted variation remains within the reuse budget; recomputation refreshes the cached state when the budget is exceeded. Thus, QAC changes the indicator and its calibration domain while preserving the cache-controller semantics and the fixed-precision recompute path. The measured runtime overhead is \textbf{[TBD]}.

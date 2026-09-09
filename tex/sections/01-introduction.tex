@@ -1,116 +1,20 @@
-% % !TEX root = ../main.tex
-% \section{Introduction}
-% \label{sec:intro}
-% \IEEEPARstart{V}{ideo} Diffusion Transformers (VDiTs) have emerged as a
-% powerful paradigm for high-fidelity video generation
-% ~\cite{zheng2024opensora}, but their iterative denoising incurs substantial
-% inference cost. Open-Sora v1.2, for example, repeatedly executes 28 spatial--temporal block pairs in a
-% Spatial-Temporal Diffusion Transformer (STDiT) over 30 sampling steps.
-% Efficient deployment therefore requires reducing both the number of STDiT
-% evaluations and the cost of each evaluation.
-
-% Caching and quantization exploit these two opportunities from complementary
-% directions. Timestep caching reuses intermediate results across adjacent
-% denoising steps~\cite{liu2025teacache}, while post-training quantization
-% replaces high-precision operators with low-bit computation
-% ~\cite{zhao2025viditq}. Their joint use has also been explored through cache
-% schedule optimization, error correction, hierarchical caching, and adaptive
-% precision~\cite{liu2025cachequant,wu2025quantcache}. However, directly
-% combining timestep caching with fixed W8A8/INT8 execution leaves two
-% cross-layer mismatches unresolved.
-
-% First, caching and quantization operate in different \textbf{numerical
-% domains}. Existing cache indicators estimate the benefit of recomputation
-% from the variation of a full-precision feature $F_t$, whereas a quantized
-% model evolves according to $Q_s(F_t)$. Because quantization is nonlinear and
-% piecewise constant, full-precision variation need not preserve the relative
-% change seen by the low-precision model. An FP-domain indicator can therefore
-% misestimate cache relevance after quantization. Our characterization observes
-% only \FPIndicatorCorr{} correlation between the conventional indicator and
-% the actual quantized-output variation.
-
-% Second, the remaining low-precision STDiT computation exhibits a
-% \textbf{matrix-axis mismatch}. Factorized spatial/temporal attention
-% alternates the sequence dimension across different GEMM axes, causing the
-% same fixed-width datapath to encounter substantially different degrees of
-% parallelism. For example, under the default \ModelName{} configuration, VAE
-% compression and patch embedding produce $S=\SpatialSeq{}$ spatial tokens and
-% $T=\TemporalSeq{}$ temporal tokens. With classifier-free guidance, this
-% corresponds to \SpatialContexts{} spatial contexts of length \SpatialSeq{}
-% but \TemporalContexts{} temporal contexts of length \TemporalSeq{}. Moreover,
-% the varying sequence length $L$ appears on different GEMM axes,
-% \begin{equation}
-% QK^{\mathsf T}:[1,d]!\times![d,L],\qquad
-% PV:[1,L]!\times![L,d],
-% \label{eq:attn_axes}
-% \end{equation}
-% fragmenting output parallelism in $QK^{\mathsf T}$ and reduction parallelism
-% in $PV$. On a fixed $36\times36$ INT8 PEA with $d=72$, this concrete workload
-% yields \BaseSpatialQKUtil{} utilization for spatial attention but only
-% \BaseTemporalQKUtil{} for temporal attention, illustrating why a uniform
-% attention mapping is inefficient across the two execution regimes.
-
-% These observations motivate an algorithm--hardware co-design that aligns both
-% the cache decision and the arithmetic organization with the actual
-% low-precision workload. At the algorithm level, we propose
-% \textbf{quantization-aligned caching (QAC)}, which evaluates cache relevance
-% from the quantized representation and calibrates the indicator against
-% quantized output variation. QAC retains fixed W8A8/INT8 execution without introducing
-% mixed precision or an auxiliary correction network. At the architecture
-% level, we develop a \textbf{dimension-elastic row-wise PEA}. Its 36
-% $QK^{\mathsf T}$ output lanes are partitioned into four 9-lane head groups,
-% raising spatial/temporal lane utilization to
-% \OursSpatialQKUtil{}/\OursTemporalQKUtil{}, while a boundary-aware segmented
-% reduction tree packs variable-length $PV$ reductions across dot-product
-% boundaries. Stride-programmable loads provide spatial and temporal views
-% without explicit tensor reshaping.
-
-% On \ModelName{}, QAC improves indicator correlation from \FPIndicatorCorr{}
-% to \QIndicatorCorr{} and increases cache reuse from \BaseCacheRatio{} to
-% \QACCacheRatio{} at matched generation quality. The complete model achieves
-% \QACVBench{} VBench versus \BaselineVBench{} for the 16-bit baseline. RTL
-% evaluation in \TechNode{} shows \EtoESpeedup{} end-to-end speedup and
-% \EnergyGain{} higher energy efficiency with \AreaOverhead{} area overhead.
-
-% Our contributions are summarized as follows:
-% \begin{itemize}
-%   \item We identify a \textbf{decision-domain mismatch} in cache-quantized
-%   VDiT inference and propose \textbf{QAC}, which aligns cache decisions with
-%   the low-precision execution trajectory.
-%   \item We reveal the \textbf{matrix-axis mismatch} of factorized
-%   spatial/temporal attention and propose a \textbf{dimension-elastic row-wise
-%   PEA} that adapts output parallelism for $QK^{\mathsf T}$ and reduction
-%   parallelism for $PV$.
-%   \item We implement the co-design in RTL and evaluate it on real
-%   \ModelName{} tensor shapes, demonstrating \QACVBench{} VBench,
-%   \EtoESpeedup{} end-to-end speedup, and \EnergyGain{} energy-efficiency
-%   improvement.
-% \end{itemize}
-
-% % =========================================================================
-% % PAGE-BUDGET GUIDANCE:
-% % Page 1: Abstract + Fig. 1 + Introduction.
-% % Page 2: QAC + matrix-shape characterization + architecture overview.
-% % Page 3: dimension-elastic PEA details + experimental setup/results.
-% % Page 4: ablations/comparisons + conclusion.
-% % Page 5: references only, if needed.
-% % =========================================================================
-
+% !TEX root = ../main.tex
 \section{Introduction}
 \label{sec:intro}
-\IEEEPARstart{V}{ideo} Diffusion Transformers (VDiTs) enable high-quality video generation but repeatedly execute expensive Spatial-Temporal Diffusion Transformer (STDiT) blocks throughout denoising~\cite{zheng2024opensora}. For example, \ModelName{} executes 28 spatial--temporal block pairs over 30 sampling steps, making both redundant timestep computation and low-precision arithmetic attractive optimization targets. Timestep caching skips redundant STDiT evaluations across adjacent steps~\cite{liu2025teacache}, while post-training quantization lowers the cost of each recomputed step~\cite{zhao2025viditq}. Recent joint approaches further optimize cache schedules, error correction, or precision selection~\cite{liu2025cachequant,wu2025quantcache}. However, these techniques largely optimize \emph{when} to recompute and \emph{how precisely} to recompute as separate decisions. Their direct composition with a fixed W8A8/INT8 accelerator leaves two cross-layer mismatches unresolved.
+
+\IEEEPARstart{V}{ideo} Diffusion Transformers (VDiTs) enable high-quality video generation but repeatedly execute expensive Spatial-Temporal Diffusion Transformer (STDiT) blocks throughout denoising~\cite{zheng2024opensora}. For example, Open-Sora v1.2 executes 28 spatial--temporal block pairs over 30 sampling steps, making both redundant timestep computation and low-precision arithmetic attractive optimization targets. Timestep caching skips redundant STDiT evaluations across adjacent steps~\cite{liu2025teacache}, while post-training quantization lowers the cost of each recomputed step~\cite{zhao2025viditq}. Recent joint approaches further optimize cache schedules, error correction, or precision selection~\cite{liu2025cachequant,wu2025quantcache}. However, these techniques largely optimize \emph{when} to recompute and \emph{how precisely} to recompute as separate decisions. Their direct composition with a fixed W8A8/INT8 accelerator leaves two cross-layer mismatches unresolved.
 
 The first is a \textbf{decision-domain mismatch}. Conventional cache policies estimate recomputation benefit from full-precision feature variation, whereas the recomputed path evolves according to quantized representations. Because quantization is nonlinear and piecewise constant, a large FP-domain change may be suppressed after quantization, while a seemingly small change may cross a quantization boundary. Consequently, an FP-domain cache indicator can be poorly aligned with the computation that is actually executed, reducing the reliability of cache decisions in a fixed W8A8/INT8 pipeline.
 
-The second is a \textbf{matrix-axis mismatch}. Factorized spatial and temporal attention alternate highly asymmetric sequence lengths, and the varying token dimension appears on different GEMM axes in $QK^{\mathsf T}$ and $PV$. For example, the default \ModelName{} workload alternates $S=\SpatialSeq{}$ spatial tokens and $T=\TemporalSeq{}$ temporal tokens. Thus, the same fixed-width array must accommodate both long and short output dimensions in $QK^{\mathsf T}$ and reduction dimensions in $PV$, causing lane fragmentation and padding waste.
+The second is a \textbf{matrix-axis mismatch}. Factorized spatial and temporal attention alternate highly asymmetric sequence lengths, and the varying token dimension appears on different GEMM axes in $QK^{\mathsf T}$ and $PV$. In our hardware characterization, temporal attention uses $T=19$ throughout, exposing the short-sequence regime on both GEMM axes. Thus, the same fixed-width array must accommodate a short output dimension in $QK^{\mathsf T}$ and a short reduction dimension in $PV$, causing lane fragmentation and padding waste.
 
-Fig.~\ref{fig:overview} summarizes \textbf{Q-DARE}, our cross-layer algorithm--hardware co-design for these two mismatches. At the algorithm level, \textbf{quantization-aligned caching (QAC)} evaluates cache relevance in the same numerical domain as recomputation and calibrates the indicator against quantized output variation. At the hardware level, the \textbf{dimension-adaptive reconfigurable engine (DARE)} adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath. Output-lane partitioning improves short-sequence occupancy, boundary-aware segmented reduction packs variable-length dot products without cross-segment interference, and stride-programmable accesses support spatial/temporal views without explicit reshaping.
+Fig.~\ref{fig:overview} summarizes \textbf{Q-DARE}, our cross-layer algorithm--hardware co-design for these two mismatches. At the algorithm level, \textbf{quantization-aligned caching (QAC)} evaluates cache relevance in the same numerical domain as recomputation and calibrates the indicator against quantized output variation. At the hardware level, the \textbf{dimension-adaptive reconfigurable engine (DARE)} adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath. Output-lane partitioning improves short-sequence occupancy, boundary-aware segmented reduction packs variable-length dot products without cross-segment interference, and replay-based address remapping avoids explicit K/V transposition.
 
-Our characterization shows that QAC improves indicator correlation from \FPIndicatorCorr{} to \QIndicatorCorr{} and cache reuse from \BaseCacheRatio{} to \QACCacheRatio{} at matched quality. DARE raises spatial/temporal $QK^{\mathsf T}$ utilization from \BaseSpatialQKUtil{}/\BaseTemporalQKUtil{} to \OursSpatialQKUtil{}/\OursTemporalQKUtil{}. The complete co-design achieves \QACVBench{} VBench, \EtoESpeedup{} end-to-end speedup, and \EnergyGain{} higher energy efficiency.
+Our characterization shows that QAC improves indicator correlation from \textbf{[TBD]} to \textbf{[TBD]} and cache reuse from \textbf{[TBD]} to \textbf{[TBD]} at matched quality. For temporal $QK^{\mathsf T}$ with $T=19$, DARE raises lane utilization from 52.8\% to 70.4\%. The complete co-design achieves a VBench score of \textbf{[TBD]}, an end-to-end speedup of \textbf{[TBD]}$\times$, and an energy-efficiency improvement of \textbf{[TBD]}$\times$.
 
 Our contributions are summarized as follows:
 \begin{itemize}
   \item We identify the \textbf{decision-domain mismatch} in cache-quantized VDiT inference and propose QAC to align cache decisions with the quantized execution trajectory.
   \item We characterize the \textbf{matrix-axis mismatch} of factorized attention and design DARE to adapt both output and reduction parallelism on a shared datapath.
-  \item We implement the co-design in RTL and evaluate it on \ModelName{}, demonstrating \QACVBench{} VBench, \EtoESpeedup{} end-to-end speedup, and \EnergyGain{} energy-efficiency improvement.
+  \item We implement the co-design in RTL and evaluate it on Open-Sora v1.2, demonstrating competitive generation quality together with end-to-end performance and energy-efficiency gains.
 \end{itemize}

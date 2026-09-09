@@ -1,177 +1,54 @@
 % !TEX root = ../main.tex
 \section{DARE: Dimension-Adaptive Reconfigurable Engine}
 \label{sec:hardware}
-% Compatibility alias for the current Introduction, which still refers to
-% Section~\ref{sec:characterization} for matrix-shape characterization.
 \label{sec:characterization}
 
 \subsection{Architecture Overview}
-
-As illustrated by the lower path of Fig.~\ref{fig:overview}, factorized
-spatial/temporal attention exposes a \emph{matrix-axis mismatch}: the variable
-sequence dimension $L$ appears on the output axis of $QK^{\mathsf T}$ but on
-the reduction axis of $PV$. For the default \ModelName{} workload,
-$T=\TemporalSeq{}$, $S=\SpatialSeq{}$, and $d=72$. Under classifier-free
-guidance, spatial attention forms \SpatialContexts{} contexts of length $S$,
-whereas temporal attention forms \TemporalContexts{} contexts of length $T$.
-The same attention datapath must therefore alternate between long and short
-output dimensions in $QK^{\mathsf T}$ and long and short reduction dimensions
-in $PV$.
-
-DARE addresses this asymmetry around a shared $36\times36$ INT8 processing
-array. The array contains 36 output lanes, each evaluating a 36-product INT8
-dot-product segment, for a total of \INTEightMACs{} INT8 MACs. Channel
-sizes are naturally aligned with this granularity: the attention head
-dimension is $d=72=2\times36$, while the STDiT hidden dimension is
-$1152=32\times36$. Hence the dominant inefficiency is not the channel axis,
-but the variable spatial/temporal token axis. The same compute cluster also
-contains a \FPSixteenMACs{}-MAC FP16 VCU for softmax and other nonlinear
-operations, \SRAMCapacity{} aggregate on-chip SRAM, and \DMAChannels{}
-independent DMA channels providing \MemoryBandwidth{} aggregate bandwidth at
-\Frequency{}.
+As summarized by the lower path of Fig.~\ref{fig:overview}, the variable sequence dimension $L$ appears on the output axis of $QK^{\mathsf T}$ but on the reduction axis of $PV$. DARE adapts these two axes around one shared $36\times36$ INT8 PEA rather than provisioning separate spatial and temporal engines. The PEA contains 1296 INT8 MACs, while a 36-MAC FP16 VCU handles nonlinear operations. The compute cluster integrates 238.5\,KB on-chip SRAM and eight 256-bit DMA channels, providing 256\,GB/s aggregate bandwidth at 1\,GHz.
 
 \begin{figure}[t]
   \centering
-  \placeholderfig{1.30in}{
-  \textbf{Fig. 2 placeholder: DARE accelerator architecture.}\\[-1pt]
-  External memory / \DMAChannels{} DMA channels $\rightarrow$ Load/AGU
-  $\rightarrow$ IFMAP/Weight SRAM $\rightarrow$ shared 36$\times$36 INT8 PEA
-  $\rightarrow$ Softmax/VCU $\rightarrow$ OFMAP SRAM.\\
-  A mode/address controller configures
-  (1) $QK^{\mathsf T}$ output-lane groups,
-  (2) $PV$ reduction-boundary metadata, and
-  (3) spatial/temporal address strides.}
-  \caption{DARE reuses one arithmetic datapath for spatial and temporal
-  attention. Reconfiguration changes the output-lane ownership in
-  $QK^{\mathsf T}$ and the reduction semantics in $PV$ rather than duplicating
-  the PEA.}
+  \IfFileExists{fig/dare_arch.pdf}
+    {\includegraphics[width=\columnwidth]{fig/dare_arch.pdf}}
+    {\fbox{\parbox[c][1.02in][c]{0.94\columnwidth}{\centering\footnotesize
+    DARE architecture placeholder:\\
+    DMA/Load $\rightarrow$ IFMAP/Weight SRAM $\rightarrow$ shared
+    $36\times36$ PEA $\rightarrow$ VCU/OFMAP SRAM.}}}
+  \caption{DARE reconfigures lane ownership, reduction boundaries, and local data access around a shared arithmetic datapath.}
   \label{fig:dare_arch}
 \end{figure}
 
-The architectural principle is to reconfigure the interpretation and local
-interconnection of the same arithmetic resources. In $QK^{\mathsf T}$ mode,
-DARE changes how the 36 output lanes are assigned across heads; in $PV$ mode,
-it changes how products are grouped into independent reductions. The PEA MAC
-count itself is unchanged in both modes, which allows the two optimizations to
-share the same datapath and memory hierarchy.
+DARE encodes these execution modes in the existing 128-bit GEMM instruction. The \texttt{temporal\_length} field selects the active sequence length, while dedicated control bits select temporal QK head packing, segmented reduction, and V replay. Other GEMM and attention configurations retain the conventional execution mode, allowing the same datapath to serve general linear and attention operations.
 
 \subsection{Output-Axis Adaptation for $QK^{\mathsf T}$}
-
-For one query row, $QK^{\mathsf T}$ computes $L$ attention scores, so the
-sequence length directly determines output-lane occupancy. A conventional
-mapping assigns all 36 output lanes to one attention head. Ignoring other
-pipeline effects, its useful-lane fraction is
+A conventional temporal $QK^{\mathsf T}$ mapping assigns all 36 score lanes to one head; at $T=19$, only $19/36=52.8\%$ are useful. DARE instead partitions the physical lanes as
 \begin{equation}
- \eta_{\mathrm{out}}(L;P)=
- \frac{L}{P\left\lceil L/P\right\rceil},
- \label{eq:qk_util}
-\end{equation}
-where $P$ is the number of lanes assigned to one head. With $P=36$, temporal
-attention at $T=15$ uses only $15/36=\BaseTemporalQKUtil{}$ of the lanes,
-while spatial attention at $S=405$ reaches \BaseSpatialQKUtil{} because the
-last 36-lane group is only partially filled.
-
-DARE introduces an output-partition mode in which the evaluated design divides
-the 36 lanes into four independent 9-lane groups:
-\begin{equation}
- 36\ \text{lanes} \rightarrow
- 4\ \text{heads}\times 9\ \text{lanes/head}.
+ 36\ \text{lanes}\rightarrow4\ \text{heads}\times9\ \text{lanes/head}.
  \label{eq:qk_partition}
 \end{equation}
-Each group produces score entries for a different head while reusing the same
-physical MAC array. Temporal attention now completes one 15-score row in two
-9-lane rounds, increasing useful-lane occupancy to
-$15/18=\OursTemporalQKUtil{}$. For spatial attention,
-$405/9=45$ exactly, eliminating the output tail and reaching
-\OursSpatialQKUtil{}. Thus, the same partition improves the short temporal
-case while preserving efficient execution of the long spatial case.
+For temporal attention with $K=72$ and $1\leq T\leq36$, the controller issues $\lceil T/9\rceil$ key tiles, with two 36-element beats completing the reduction dimension. Thus, $T=19$ uses three key tiles and raises lane occupancy to $19/27=70.4\%$.
 
-The key mechanism is the output-axis partition itself rather than a second
-attention engine: DARE changes which head owns each output group and how many
-score positions are issued per group, while the underlying 36-product dot
-products remain unchanged. The $4\times9$ configuration is the evaluated
-mapping for the target workload; the paper does not require a duplicated PEA
-for spatial and temporal attention.
+The four heads retain independent score tiles but share the same multiplier array. Readiness tracking allows the four first Q halves to trigger the first K-half computation while the second Q halves are still being fetched. After the second K half completes the 72-element dot products, packed scores are drained as conventional contiguous score words, so the downstream VCU does not need to interpret the packed lane layout. The optimization therefore changes scheduling and lane ownership rather than duplicating arithmetic resources.
 
 \subsection{Boundary-Aware Segmented Reduction for $PV$}
+In $PV$, $L$ becomes the reduction dimension. Padding every short reduction to 36 products wastes lanes even when products from adjacent reductions are available. DARE instead streams adjacent reductions through the same 36-product beat. Each beat carries up to two reduction boundaries and therefore contains at most three contiguous segments. A six-level reduction tree propagates both partial sums and segment tags; neighboring values are accumulated only when their tags match, preventing cross-reduction interference.
 
-The same sequence length $L$ plays a different role in $PV$. Each output
-channel requires a dot product across the attention sequence, so $L$ becomes
-the reduction dimension. Padding every reduction independently to the 36-wide
-PEA gives the theoretical multiplier occupancy
-\begin{equation}
- \eta_{\mathrm{red}}^{\mathrm{pad}}(L)=
- \frac{L}{36\left\lceil L/36\right\rceil}.
- \label{eq:pv_pad_util}
-\end{equation}
-For a short temporal sequence, this leaves a large fraction of every beat as
-padding even though products from subsequent output reductions are ready to
-execute.
-
-DARE instead treats successive $PV$ dot products as a continuous product
-stream. A 36-product beat may therefore contain the tail of one reduction,
-one or more complete reductions, and the head of the next reduction. Each
-product group carries reduction-boundary metadata identifying the logical
-segment to which it belongs. The reduction tree propagates both partial sums
-and segment information; neighboring values are accumulated only when their
-segment tags match, preventing products from different output reductions from
-being mixed. Completed segments are committed to the output path, whereas an
-unfinished tail is retained and combined with the matching segment in the
-next beat.
+At the tree output, a persistent accumulator implements cross-beat handoff. With no completed reduction, the current segment extends the accumulator. With one completion, the accumulated first segment is emitted and the second segment initializes the next reduction. With two completions, two results are emitted and the third segment becomes the new tail. Two logical completion writes can therefore occur in one cycle. The physical OFMAP storage remains a single $1152\times128$ SRAM; when two results complete together, the secondary result enters a 16-entry deferred-write FIFO and is drained to the same SRAM before the next consumer accesses the data.
 
 \begin{figure}[t]
   \centering
-  \placeholderfig{1.08in}{
-  \textbf{Fig. 3 placeholder: dual-axis DARE microarchitecture.}\\[-1pt]
-  \textbf{(a) $QK^{\mathsf T}$:} baseline [36 lanes $\rightarrow$ 1 head]
-  versus DARE [9][9][9][9] $\rightarrow$ four heads.\\
-  \textbf{(b) $PV$:} baseline [valid products $|$ padding] per reduction
-  versus a continuous beat [tail $R_0$ $|$ $R_1$ $|$ head $R_2$]
-  $\rightarrow$ tag-aware reduction tree $\rightarrow$ completed and partial
-  segments.}
-  \caption{Dual-axis adaptation in DARE. Output-lane partitioning improves
-  $QK^{\mathsf T}$ occupancy, while boundary-aware segmented reduction removes
-  inter-vector padding in $PV$.}
+  \IfFileExists{fig/dare_modes.pdf}
+    {\includegraphics[width=\columnwidth]{fig/dare_modes.pdf}}
+    {\fbox{\parbox[c][0.90in][c]{0.94\columnwidth}{\centering\footnotesize
+    Dual-axis adaptation placeholder:\\
+    (a) temporal $QK^{\mathsf T}$: 36 lanes/head $\rightarrow$ four 9-lane groups;\\
+    (b) temporal $PV$: padded rows $\rightarrow$ tagged product stream
+    $\rightarrow$ segmented reduction + accumulator handoff.}}}
+  \caption{DARE mechanisms for temporal QK head packing and boundary-aware segmented PV reduction.}
   \label{fig:dare_modes}
 \end{figure}
 
-By packing across reduction boundaries, DARE removes the padding between
-successive dot products; only the final tail of the packed stream can remain
-underfilled. This mechanism is complementary to the $QK^{\mathsf T}$ output
-partition because it addresses the same irregular sequence dimension after it
-moves from the output axis to the reduction axis.
+For temporal $PV$ with $T=19$, one head contains $19^2=361$ score products. DARE packs them into 11 beats per output group, raising useful-product occupancy from $19/36=52.8\%$ in a row-padded mapping to $361/(11\times36)=91.2\%$. Two output groups therefore require 22 beats per head instead of 38. This packing converts padding bubbles into useful products from adjacent reductions while preserving reduction boundaries through the tag and accumulator state.
 
-% CRITICAL IMPLEMENTATION CHECK:
-% The current repository notes state that the segmented temporal PV mode is
-% enabled only for T >= 18. Do not claim measured default-workload (T=15) PV
-% speedup until the short-T mode is functionally verified. The generic
-% segmented-reduction description above is architectural; insert T=15 measured
-% latency/utilization only after that verification.
-
-\subsection{Dataflow and Reshape-Free Memory Access}
-
-STDiT alternates logical $[T,S,C]$ and $[S,T,C]$ traversals between temporal
-and spatial attention. Physically reshaping the activation tensor at every
-mode transition would add SRAM traffic and buffering that are unrelated to
-the attention arithmetic itself. DARE instead keeps the tensor in the shared
-on-chip memory hierarchy and programs the load/address-generation unit with
-the stride pattern required by the active logical view. The same SRAM contents
-can therefore be traversed along the spatial or temporal axis without an
-explicit transpose or reshape copy.
-
-This address-level reconfiguration feeds both DARE execution modes: the
-$QK^{\mathsf T}$ path receives the token order required by the selected output
-partition, and the $PV$ path receives a continuous product stream together
-with the corresponding reduction boundaries. The supporting address logic is
-not a separate compute contribution; its role is to prevent data-layout
-conversion from negating the utilization gains of the two PEA modes.
-
-% TODO before final submission: Section IV currently states that the evaluated
-% schedule includes K/V replay. Add the exact K/V residency and replay sequence
-% here only after it is verified against the RTL/cycle-model implementation;
-% the current paper sources do not specify enough detail to describe it safely.
-
-Overall, DARE adds output-group control, reduction-boundary metadata, and
-stride configuration around a shared PEA rather than instantiating separate
-spatial and temporal attention engines. Section~\ref{sec:eval} evaluates the
-incremental area/power cost and the latency benefit of these mechanisms.
+\subsection{Replay and Transpose-Free Temporal Access}
+DARE avoids an explicit K/V transpose by moving the temporal permutation into address generation and lane-local replay. For S$\times$V, instruction fields provide the score-buffer base and V-replay weight base. A lane-local V cache holds one 36-position V tile; the temporal phase circularly remaps its entries into the 36 product slots, so a packed score stream receives the matching V row without rewriting the SRAM layout. Each output-channel group restarts from the same score-row base, while the cached V beat is replayed across reduction boundaries. These controls support both DARE modes without adding a second PEA or a transpose buffer.
