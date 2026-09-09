@@ -1,3 +1,106 @@
+% % !TEX root = ../main.tex
+% \section{Evaluation}
+% \label{sec:eval}
+
+% \subsection{Experimental Setup}
+% \label{subsec:setup}
+
+% \textbf{Model and quality.}
+% We evaluate the official Open-Sora v1.2.0 STDiT3-XL/2 configuration (hidden size 1152, 16 heads, head dimension 72, and 28 spatial plus 28 temporal blocks). Quality experiments follow the released 240p, 9:16, 51-frame recipe with 30 rectified-flow steps and CFG scale 7. We report mean VBench over the official prompt protocol.
+
+% \textbf{Quantization and caching.}
+% All quantized runs use fixed W8A8 execution for GEMM/attention arithmetic while retaining FP16 for VCU operations required by normalization and nonlinear functions. Quantizer scales are calibrated offline and frozen. QAC uses the same quantized representation as the recompute path; its calibration split and cache threshold are fixed before test evaluation. Cache ratio denotes the fraction of STDiT block evaluations reused over the 30-step schedule.
+
+% \textbf{Hardware.}
+% The accelerator contains one $36\times36$ INT8 PEA (1296 INT8 MACs), a 36-MAC FP16 VCU, 238.5\,KB on-chip SRAM, and eight 256-bit DMA channels. We synthesize it with Synopsys Design Compiler T-2022.03-SP2 using the TSMC 28-nm HPC+ 0.9-V typical view at 1\,GHz. The cycle-level simulator models PEA/VCU/DMA execution, dependencies, and fusion-group overlap. For consistency, the temporal $QK^{\mathsf T}$ and segmented-$PV$ microarchitecture results both use $T=19$. Technology-normalized 7-nm values use area, delay, and power scaling factors of 31.818, 1.264, and 2.667, respectively.
+
+% \subsection{End-to-End Quality and Performance}
+
+% \begin{figure}[!t]
+%   \centering
+%   \includegraphics[width=3.5in]{fig/gen_img.pdf}
+%   \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
+%   \label{fig:gen_img}
+% \end{figure}
+
+% \begin{table}[t]
+% \centering
+% \caption{End-to-end quality, cache reuse, and performance.}
+% \label{tab:e2e}
+% \footnotesize
+% \setlength{\tabcolsep}{2.0pt}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{lcccc}
+% \toprule
+% Configuration & Prec. & Cache & VBench & Speedup \\
+% \midrule
+% 16-bit dense & 16/16 & 0 & 76.77 & 1.00$\times$ \\
+% ViDiT-Q~\cite{zhao2025viditq} & 8/8 & 0 & 76.79 & \textbf{[TBD]} \\
+% TeaCache~\cite{liu2025teacache} & 16/16 & \textbf{[TBD]} & 75.88 & \textbf{[TBD]} \\
+% Naive Cache+Quant & 8/8 & \textbf{[TBD]} & 76.61 & \textbf{[TBD]} \\
+% + QAC & 8/8 & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+% + DARE (Q-DARE) & 8/8 & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \end{table}
+
+% Table~\ref{tab:e2e} separates the gain from numerical-domain alignment (QAC) from the per-step hardware gain of DARE. QAC increases reusable computation at matched quality, while DARE reduces the latency of the remaining recomputed steps; their combination yields the final end-to-end speedup.
+
+% \subsection{Hardware Efficiency}
+% \label{subsec:hw_eval}
+
+% Table~\ref{tab:hw_comparison} summarizes the DC synthesis results and the technology-normalized comparison with ViDA~\cite{ding2025vida}. At 28\,nm, DC reports an area of 4.2624\,mm$^2$ and a power of 116.372\,mW at 1\,GHz. Technology normalization gives 0.134\,mm$^2$, 43.6\,mW, and an estimated $F_{\max}$ of 1.264\,GHz. For cross-accelerator performance comparison, we use 1\,GHz and 256\,GB/s, matching ViDA's evaluation setting rather than exploiting the higher normalized $F_{\max}$.
+
+% \begin{table}[t]
+% \centering
+% \caption{Implementation parameters and 7-nm normalization.}
+% \label{tab:hw_comparison}
+% \footnotesize
+% \setlength{\tabcolsep}{2.4pt}
+% \renewcommand{\arraystretch}{1.05}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{@{}lccc@{}}
+% \toprule
+% \textbf{Metric} & \textbf{Ours--28 nm} & \textbf{Ours--7 nm Norm.} & \textbf{ViDA~\cite{ding2025vida}} \\
+% \midrule
+% Frequency & 1.0\,GHz & 1.0\,GHz$^{a}$ & 1.0\,GHz \\
+% MACs & 1296 INT8 + 36 FP16 & 1296 INT8 + 36 FP16 & 640 FP16 \\
+% SRAM & 238.5\,KB & 238.5\,KB & N/R \\
+% Memory BW & 256\,GB/s & 256\,GB/s & 256\,GB/s \\
+% Area & 4.2624\,mm$^2$ & 0.134\,mm$^2$$^{b}$ & 2.03\,mm$^2$ \\
+% Power & 116.372\,mW & 43.6\,mW & N/R \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \vspace{1pt}
+% \parbox{\columnwidth}{\scriptsize
+% $^{a}$Technology-normalized $F_{\max}$ is 1.264\,GHz; 1\,GHz is used for comparison. $^{b}$Preliminary scaling of the reported 28-nm area; SRAM must be normalized separately if it is not included in the synthesis area.}
+% \end{table}
+
+% \begin{table}[t]
+% \centering
+% \caption{Ablation of DARE's dual-axis adaptation.}
+% \label{tab:hardware}
+% \footnotesize
+% \setlength{\tabcolsep}{2.4pt}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{lcccc}
+% \toprule
+% Design & Area & Power & Attn. Lat. & E2E \\
+% \midrule
+% Baseline PEA & \textbf{[TBD]} & \textbf{[TBD]} & 1.00$\times$ & 1.00$\times$ \\
+% + QK adaptation & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+% + PV segmented red. & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+% Full DARE & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \end{table}
+
+% The hardware ablation reports measured latency together with the incremental area and power overhead of the two adaptation mechanisms. Both the QK and segmented-$PV$ rows use the $T=19$ temporal configuration described in Section~\ref{sec:hardware}.
+
+
 % !TEX root = ../main.tex
 \section{Evaluation}
 \label{sec:eval}
@@ -5,56 +108,68 @@
 \subsection{Experimental Setup}
 \label{subsec:setup}
 
-\textbf{Model and quality.}
-We evaluate the official Open-Sora v1.2.0 STDiT3-XL/2 configuration (hidden size 1152, 16 heads, head dimension 72, and 28 spatial plus 28 temporal blocks). Quality experiments follow the released 240p, 9:16, 51-frame recipe with 30 rectified-flow steps and CFG scale 7. We report mean VBench over the official prompt protocol.
+We evaluate Open-Sora v1.2 STDiT3-XL/2 using the 240p, 9:16,
+51-frame, 30-step generation setting and report VBench for generation
+quality. Quantized inference uses W8A8 GEMM/attention and FP16 vector
+operations. The accelerator is synthesized in TSMC 28\,nm at 1\,GHz,
+and performance is evaluated using cycle-level simulation. For comparison
+with ViDA~\cite{ding2025vida}, we report technology-normalized 7-nm
+results at the same 1\,GHz frequency and 256\,GB/s memory bandwidth.
 
-\textbf{Quantization and caching.}
-All quantized runs use fixed W8A8 execution for GEMM/attention arithmetic while retaining FP16 for VCU operations required by normalization and nonlinear functions. Quantizer scales are calibrated offline and frozen. QAC uses the same quantized representation as the recompute path; its calibration split and cache threshold are fixed before test evaluation. Cache ratio denotes the fraction of STDiT block evaluations reused over the 30-step schedule.
+\subsection{Algorithm Quality}
+\label{subsec:quality}
 
-\textbf{Hardware.}
-The accelerator contains one $36\times36$ INT8 PEA (1296 INT8 MACs), a 36-MAC FP16 VCU, 238.5\,KB on-chip SRAM, and eight 256-bit DMA channels. We synthesize it with Synopsys Design Compiler T-2022.03-SP2 using the TSMC 28-nm HPC+ 0.9-V typical view at 1\,GHz. The cycle-level simulator models PEA/VCU/DMA execution, dependencies, and fusion-group overlap. For consistency, the temporal $QK^{\mathsf T}$ and segmented-$PV$ microarchitecture results both use $T=19$. Technology-normalized 7-nm values use area, delay, and power scaling factors of 31.818, 1.264, and 2.667, respectively.
-
-\subsection{End-to-End Quality and Performance}
-
-\begin{figure}[!t]
+\begin{figure}[t]
   \centering
-  \includegraphics[width=3.5in]{fig/gen_img.pdf}
-  \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
-  \label{fig:gen_img}
+  \includegraphics[width=\columnwidth]{fig/gen_img.pdf}
+  \caption{Qualitative comparison of generated videos under different
+  inference configurations.}
+  \label{fig:quality_visual}
 \end{figure}
 
+Fig.~\ref{fig:quality_visual} presents representative generated videos.
+QAC preserves the visual content of the high-precision and quantized
+baselines while enabling more timestep reuse. Table~\ref{tab:quality}
+reports the quantitative comparison using VBench and cache ratio.
+
 \begin{table}[t]
 \centering
-\caption{End-to-end quality, cache reuse, and performance.}
-\label{tab:e2e}
+\caption{Generation quality and cache reuse.}
+\label{tab:quality}
 \footnotesize
-\setlength{\tabcolsep}{2.0pt}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lcccc}
+\setlength{\tabcolsep}{3.0pt}
+\renewcommand{\arraystretch}{1.05}
+\begin{tabular}{lccc}
 \toprule
-Configuration & Prec. & Cache & VBench & Speedup \\
+Method & Precision & Cache Ratio & VBench \\
 \midrule
-16-bit dense & 16/16 & 0 & 76.77 & 1.00$\times$ \\
-ViDiT-Q~\cite{zhao2025viditq} & 8/8 & 0 & 76.79 & \textbf{[TBD]} \\
-TeaCache~\cite{liu2025teacache} & 16/16 & \textbf{[TBD]} & 75.88 & \textbf{[TBD]} \\
-Naive Cache+Quant & 8/8 & \textbf{[TBD]} & 76.61 & \textbf{[TBD]} \\
-+ QAC & 8/8 & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
-+ DARE (Q-DARE) & 8/8 & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
+FP16 Baseline & FP16 & 0 & 76.77 \\
+ViDiT-Q~\cite{zhao2025viditq} & W8A8 & 0 & 76.79 \\
+TeaCache~\cite{liu2025teacache} & FP16 & \textbf{[TBD]} & 75.88 \\
+Naive Cache+Quant & W8A8 & \textbf{[TBD]} & 76.61 \\
+QAC (Ours) & W8A8 & \textbf{[TBD]} & \textbf{[TBD]} \\
 \bottomrule
-\end{tabular}%
-}
+\end{tabular}
 \end{table}
 
-Table~\ref{tab:e2e} separates the gain from numerical-domain alignment (QAC) from the per-step hardware gain of DARE. QAC increases reusable computation at matched quality, while DARE reduces the latency of the remaining recomputed steps; their combination yields the final end-to-end speedup.
+Compared with naive Cache+Quant, QAC aligns the reuse decision with the
+quantized execution trajectory, improving cache reuse at comparable
+generation quality. Since DARE only changes the execution of recomputed
+operators, it does not alter the generated output and is evaluated
+separately below.
 
-\subsection{Hardware Efficiency}
+\subsection{Hardware Evaluation}
 \label{subsec:hw_eval}
 
-Table~\ref{tab:hw_comparison} summarizes the DC synthesis results and the technology-normalized comparison with ViDA~\cite{ding2025vida}. At 28\,nm, DC reports an area of 4.2624\,mm$^2$ and a power of 116.372\,mW at 1\,GHz. Technology normalization gives 0.134\,mm$^2$, 43.6\,mW, and an estimated $F_{\max}$ of 1.264\,GHz. For cross-accelerator performance comparison, we use 1\,GHz and 256\,GB/s, matching ViDA's evaluation setting rather than exploiting the higher normalized $F_{\max}$.
+Table~\ref{tab:hw_comparison} summarizes the implementation parameters
+and comparison with ViDA~\cite{ding2025vida}. The 28-nm implementation
+contains a $36\times36$ INT8 PEA, a 36-MAC FP16 VCU, 238.5\,KB on-chip
+SRAM, and eight 256-bit DMA channels. For the normalized comparison,
+all designs are evaluated at 1\,GHz and 256\,GB/s memory bandwidth.
 
 \begin{table}[t]
 \centering
-\caption{Implementation parameters and 7-nm normalization.}
+\caption{Hardware implementation and comparison with ViDA.}
 \label{tab:hw_comparison}
 \footnotesize
 \setlength{\tabcolsep}{2.4pt}
@@ -62,40 +177,46 @@ Table~\ref{tab:hw_comparison} summarizes the DC synthesis results and the techno
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}lccc@{}}
 \toprule
-\textbf{Metric} & \textbf{Ours--28 nm} & \textbf{Ours--7 nm Norm.} & \textbf{ViDA~\cite{ding2025vida}} \\
+\textbf{Metric} &
+\textbf{Ours--28 nm} &
+\textbf{Ours--7 nm Norm.} &
+\textbf{ViDA~\cite{ding2025vida}} \\
 \midrule
-Frequency & 1.0\,GHz & 1.0\,GHz$^{a}$ & 1.0\,GHz \\
-MACs & 1296 INT8 + 36 FP16 & 1296 INT8 + 36 FP16 & 640 FP16 \\
-SRAM & 238.5\,KB & 238.5\,KB & N/R \\
+Technology & TSMC 28 nm & 7 nm (Norm.) & 7 nm \\
+Frequency & 1.0\,GHz & 1.0\,GHz & 1.0\,GHz \\
+Precision & INT8/FP16 & INT8/FP16 & FP16 \\
+INT8 MACs & 1296 & 1296 & -- \\
+FP16 MACs & 36 & 36 & 640 \\
+On-chip SRAM & 238.5\,KB & 238.5\,KB & N/R \\
 Memory BW & 256\,GB/s & 256\,GB/s & 256\,GB/s \\
-Area & 4.2624\,mm$^2$ & 0.134\,mm$^2$$^{b}$ & 2.03\,mm$^2$ \\
+Area & 4.2624\,mm$^2$ & 0.134\,mm$^2$$^{a}$ & 2.03\,mm$^2$ \\
 Power & 116.372\,mW & 43.6\,mW & N/R \\
+E2E Speedup & -- & \textbf{[TBD]} & 1.00$\times$ \\
 \bottomrule
 \end{tabular}%
 }
 \vspace{1pt}
 \parbox{\columnwidth}{\scriptsize
-$^{a}$Technology-normalized $F_{\max}$ is 1.264\,GHz; 1\,GHz is used for comparison. $^{b}$Preliminary scaling of the reported 28-nm area; SRAM must be normalized separately if it is not included in the synthesis area.}
+$^{a}$Technology-normalized area. SRAM normalization should follow the
+same convention used in the final cross-accelerator comparison.}
 \end{table}
 
-\begin{table}[t]
-\centering
-\caption{Ablation of DARE's dual-axis adaptation.}
-\label{tab:hardware}
-\footnotesize
-\setlength{\tabcolsep}{2.4pt}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{lcccc}
-\toprule
-Design & Area & Power & Attn. Lat. & E2E \\
-\midrule
-Baseline PEA & \textbf{[TBD]} & \textbf{[TBD]} & 1.00$\times$ & 1.00$\times$ \\
-+ QK adaptation & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
-+ PV segmented red. & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
-Full DARE & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} & \textbf{[TBD]} \\
-\bottomrule
-\end{tabular}%
-}
-\end{table}
+\begin{figure}[t]
+  \centering
+  \IfFileExists{fig/hw_efficiency.pdf}
+    {\includegraphics[width=\columnwidth]{fig/hw_efficiency.pdf}}
+    {\fbox{\parbox[c][1.05in][c]{0.94\columnwidth}{\centering\footnotesize
+    Normalized hardware-efficiency comparison placeholder.\\
+    (a) Energy efficiency: throughput/W.\\
+    (b) Area efficiency: throughput/mm$^2$.}}}
+  \caption{Normalized energy and area efficiency. Energy efficiency is
+  measured as end-to-end throughput per watt, while area efficiency is
+  measured as end-to-end throughput per unit area.}
+  \label{fig:hw_efficiency}
+\end{figure}
 
-The hardware ablation reports measured latency together with the incremental area and power overhead of the two adaptation mechanisms. Both the QK and segmented-$PV$ rows use the $T=19$ temporal configuration described in Section~\ref{sec:hardware}.
+Fig.~\ref{fig:hw_efficiency} compares hardware efficiency after
+normalization. DARE improves the utilization of the shared PEA for
+temporal attention, while QAC reduces the number of recomputed STDiT
+blocks. Their combination improves end-to-end throughput without
+proportionally increasing the compute or memory resources.
