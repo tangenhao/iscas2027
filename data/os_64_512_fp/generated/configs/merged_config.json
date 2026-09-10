@@ -1,0 +1,62 @@
+{
+  "BUNDLE_ROOT": "/home/vipuser/Desktop/opensora_stdit_v4",
+  "PROJECT_ROOT": "/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q",
+  "EXAMPLE_ROOT": "/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2",
+  "MODEL_ROOT": "/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/ckpts/hpcai-tech/OpenSora-STDiT-v3",
+  "resolution": "512",
+  "aspect_ratio": "1:1",
+  "num_frames": 64,
+  "fps": 24,
+  "frame_interval": 1,
+  "save_fps": 24,
+  "seed": 42,
+  "batch_size": 1,
+  "multi_resolution": "STDiT2",
+  "dtype": "fp16",
+  "condition_frame_length": 5,
+  "align": 5,
+  "model": {
+    "type": "STDiT3-XL/2",
+    "from_pretrained": "/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/ckpts/hpcai-tech/OpenSora-STDiT-v3",
+    "qk_norm": true,
+    "enable_flash_attn": false,
+    "enable_layernorm_kernel": false
+  },
+  "vae": {
+    "type": "OpenSoraVAE_V1_2",
+    "from_pretrained": "hpcai-tech/OpenSora-VAE-v1.2",
+    "micro_frame_size": 17,
+    "micro_batch_size": 4
+  },
+  "text_encoder": {
+    "type": "t5",
+    "from_pretrained": "DeepFloyd/t5-v1_1-xxl",
+    "model_max_length": 300
+  },
+  "scheduler": {
+    "type": "rflow",
+    "use_timestep_transform": true,
+    "num_sampling_steps": 30,
+    "cfg_scale": 7.0
+  },
+  "aes": 6.5,
+  "flow": null,
+  "precompute_text_embeds": false,
+  "prompt_path": "/home/vipuser/Desktop/opensora_stdit_v4/runs/power_fp_20260909_151237/timing_prompts.txt",
+  "save_dir": "/home/vipuser/Desktop/opensora_stdit_v4/runs/power_fp_20260909_151237/generated",
+  "hardware": false,
+  "shape_logging": {
+    "enabled": false,
+    "filename": "stdit_shapes.jsonl"
+  },
+  "timing": {
+    "enabled": true
+  },
+  "teacache": {
+    "enabled": false
+  },
+  "config": "/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/configs/stdit_timing_fp.py",
+  "start_index": 0,
+  "prompt_as_path": false,
+  "verbose": 0
+}

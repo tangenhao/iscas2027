@@ -1,0 +1,215 @@
+[power] started_at=2026-09-09T15:21:39+08:00
+[power] bundle_root=/home/vipuser/Desktop/opensora_stdit_v4
+[power] output_root=/home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp
+[power] mode=fp count=5 warmup=1 gpu_id=0
+[power] sample_interval_ms=100 idle_seconds=15
+/usr/bin/env: ‘python’: No such file or directory
+Python environment OK
+torch: 2.1.1+cu121 CUDA runtime: 12.1
+CUDA available: True GPU count: 1
+
+Bundle installed at: /home/vipuser/Desktop/opensora_stdit_v4
+Run FP timing:
+  bash /home/vipuser/Desktop/opensora_stdit_v4/migration/run_stdit_timing.sh fp 5 1 0
+Run the target W8A8 unsigned-attention + TeaCache timing experiment:
+  bash /home/vipuser/Desktop/opensora_stdit_v4/migration/run_stdit_timing.sh quant 5 1 0
+Install and run it in one command:
+  bash /home/vipuser/Desktop/opensora_stdit_v4/migration/run_experiment.sh 5 1 0
+[power] gpu=0, GPU-35ec6990-2b13-fbe4-44c2-103ee00e46b3, NVIDIA A100-SXM4-80GB, 550.127.05, 400.00
+[power] WARNING: selected GPU already has compute processes:
+GPU-35ec6990-2b13-fbe4-44c2-103ee00e46b3, 8650, /usr/local/awesun/bin/awesun_desktop, 414
+[power] collecting idle baseline for 15s
+[power] starting fp latency and power run
+[STDiT timing] mode=fp count=5 warmup=1 gpu=0
+/home/vipuser/Desktop/opensora_stdit_v4/env/lib/python3.10/site-packages/transformers/utils/hub.py:124: FutureWarning: Using `TRANSFORMERS_CACHE` is deprecated and will be removed in v5 of Transformers. Use `HF_HOME` instead.
+  warnings.warn(
+/home/vipuser/Desktop/opensora_stdit_v4/env/lib/python3.10/site-packages/colossalai/shardformer/layer/normalization.py:45: UserWarning: Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel
+  warnings.warn("Please install apex from source (https://github.com/NVIDIA/apex) to use the fused layernorm kernel")
+[[34m2026-09-09 15:22:04[0m] Inference configuration:
+ {'BUNDLE_ROOT': '/home/vipuser/Desktop/opensora_stdit_v4',
+ 'EXAMPLE_ROOT': '/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2',
+ 'MODEL_ROOT': '/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/ckpts/hpcai-tech/OpenSora-STDiT-v3',
+ 'PROJECT_ROOT': '/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q',
+ 'aes': 6.5,
+ 'align': 5,
+ 'aspect_ratio': '1:1',
+ 'batch_size': 1,
+ 'condition_frame_length': 5,
+ 'config': '/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/configs/stdit_timing_fp.py',
+ 'dtype': 'fp16',
+ 'flow': None,
+ 'fps': 24,
+ 'frame_interval': 1,
+ 'hardware': False,
+ 'model': {'enable_flash_attn': False,
+           'enable_layernorm_kernel': False,
+           'from_pretrained': '/home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/ckpts/hpcai-tech/OpenSora-STDiT-v3',
+           'qk_norm': True,
+           'type': 'STDiT3-XL/2'},
+ 'multi_resolution': 'STDiT2',
+ 'num_frames': 256,
+ 'precompute_text_embeds': False,
+ 'prompt_as_path': False,
+ 'prompt_path': '/home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing_prompts.txt',
+ 'resolution': '512',
+ 'save_dir': '/home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/generated',
+ 'save_fps': 24,
+ 'scheduler': {'cfg_scale': 7.0,
+               'num_sampling_steps': 30,
+               'type': 'rflow',
+               'use_timestep_transform': True},
+ 'seed': 42,
+ 'shape_logging': {'enabled': False, 'filename': 'stdit_shapes.jsonl'},
+ 'start_index': 0,
+ 'teacache': {'enabled': False},
+ 'text_encoder': {'from_pretrained': 'DeepFloyd/t5-v1_1-xxl',
+                  'model_max_length': 300,
+                  'type': 't5'},
+ 'timing': {'enabled': True},
+ 'vae': {'from_pretrained': 'hpcai-tech/OpenSora-VAE-v1.2',
+         'micro_batch_size': 4,
+         'micro_frame_size': 17,
+         'type': 'OpenSoraVAE_V1_2'},
+ 'verbose': 0}
+[[34m2026-09-09 15:22:04[0m] Building models...
+/home/vipuser/Desktop/opensora_stdit_v4/env/lib/python3.10/site-packages/huggingface_hub/file_download.py:1142: FutureWarning: `resume_download` is deprecated and will be removed in version 1.0.0. Downloads always resume when possible. If you want to force a new download, use `force_download=True`.
+  warnings.warn(
+Loading checkpoint shards:   0%|          | 0/2 [00:00<?, ?it/s]/home/vipuser/Desktop/opensora_stdit_v4/env/lib/python3.10/site-packages/torch/_utils.py:831: UserWarning: TypedStorage is deprecated. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.storage()
+  return self.fget.__get__(instance, owner)()
+Loading checkpoint shards:  50%|█████     | 1/2 [00:53<00:53, 53.48s/it]Loading checkpoint shards: 100%|██████████| 2/2 [01:49<00:00, 54.76s/it]Loading checkpoint shards: 100%|██████████| 2/2 [01:49<00:00, 54.56s/it]
+[[34m2026-09-09 15:24:16[0m] Model checkpoint loaded from /home/vipuser/Desktop/opensora_stdit_v4/project/ViDiT-Q/examples/opensora1.2/ckpts/hpcai-tech/OpenSora-STDiT-v3
+[[34m2026-09-09 15:46:10[0m] Inference finished.
+[[34m2026-09-09 15:46:10[0m] Saved 6 samples to /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/generated
+[[34m2026-09-09 15:46:10[0m] Timing summary written to /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing.json
+{
+  "experiment": "FP16",
+  "mode": "fp",
+  "warmup": 1,
+  "measured_count": 5,
+  "metric": "CUDA-event elapsed time inside STDiT backbone forward calls only",
+  "average_seconds_per_video": 206.84228359375,
+  "average_stdit_backbone_seconds_per_video": 206.84228359375,
+  "min_stdit_backbone_seconds_per_video": 206.59315234375,
+  "max_stdit_backbone_seconds_per_video": 207.37398291015626,
+  "average_full_pipeline_seconds_per_video": 218.84805937980036,
+  "stdit_forward_calls_per_video": 30,
+  "timing_definition": "primary metric is CUDA-event elapsed time inside STDiT forward calls only; full pipeline wall time is also recorded"
+}
+[STDiT timing] raw: /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing.json
+[STDiT timing] summary: /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing_summary.json
+[power] latency summary:
+{
+  "experiment": "FP16",
+  "mode": "fp",
+  "warmup": 1,
+  "measured_count": 5,
+  "metric": "CUDA-event elapsed time inside STDiT backbone forward calls only",
+  "average_seconds_per_video": 206.84228359375,
+  "average_stdit_backbone_seconds_per_video": 206.84228359375,
+  "min_stdit_backbone_seconds_per_video": 206.59315234375,
+  "max_stdit_backbone_seconds_per_video": 207.37398291015626,
+  "average_full_pipeline_seconds_per_video": 218.84805937980036,
+  "stdit_forward_calls_per_video": 30,
+  "timing_definition": "primary metric is CUDA-event elapsed time inside STDiT forward calls only; full pipeline wall time is also recorded"
+}
+[power] power summary:
+{
+  "mode": "fp",
+  "gpu": "0, GPU-35ec6990-2b13-fbe4-44c2-103ee00e46b3, NVIDIA A100-SXM4-80GB, 550.127.05, 400.00",
+  "measurement_scope": "measured-video pipeline windows; model loading and warmup excluded",
+  "measurement_window_end_source": "timing.json modification time",
+  "sampling_backend": "nvidia-smi power.draw",
+  "requested_sample_interval_ms": 100,
+  "observed_median_sample_interval_ms": 100.0,
+  "idle_sample_count": 150,
+  "idle_average_gpu_power_w": 57.27306666666667,
+  "idle_average_memory_mib": 450.0,
+  "measured_sample_count": 10920,
+  "measured_window_seconds": 1094.2402968990018,
+  "average_gpu_power_w": 358.2243324175824,
+  "average_power_above_idle_w": 300.9512657509157,
+  "busy_utilization_threshold_pct": 10.0,
+  "busy_sample_count": 10813,
+  "busy_average_gpu_power_w": 361.038888375104,
+  "busy_average_power_above_idle_w": 303.76582170843733,
+  "estimated_dynamic_energy_all_measured_videos_j": 329313.00238741236,
+  "estimated_dynamic_energy_per_video_j": 65862.60047748247,
+  "per_video": [
+    {
+      "prompt_index": 2,
+      "window_start": "2026-09-09T15:27:56.530",
+      "window_end": "2026-09-09T15:31:35.192",
+      "sample_count": 2182,
+      "average_gpu_power_w": 358.1666131989001,
+      "average_power_above_idle_w": 300.8935465322334,
+      "busy_sample_count": 2162,
+      "busy_average_gpu_power_w": 360.78792784458835,
+      "pipeline_duration_seconds": 218.6619084419999,
+      "stdit_backbone_latency_seconds": 206.66272509765625,
+      "stdit_forward_calls": 30
+    },
+    {
+      "prompt_index": 4,
+      "window_start": "2026-09-09T15:31:35.192",
+      "window_end": "2026-09-09T15:35:14.573",
+      "sample_count": 2190,
+      "average_gpu_power_w": 358.37446575342466,
+      "average_power_above_idle_w": 301.10139908675797,
+      "busy_sample_count": 2167,
+      "busy_average_gpu_power_w": 361.3999953853253,
+      "pipeline_duration_seconds": 219.38031632600087,
+      "stdit_backbone_latency_seconds": 207.37398291015626,
+      "stdit_forward_calls": 30
+    },
+    {
+      "prompt_index": 6,
+      "window_start": "2026-09-09T15:35:14.573",
+      "window_end": "2026-09-09T15:38:53.344",
+      "sample_count": 2183,
+      "average_gpu_power_w": 358.34177737059093,
+      "average_power_above_idle_w": 301.06871070392424,
+      "busy_sample_count": 2161,
+      "busy_average_gpu_power_w": 361.22962054604346,
+      "pipeline_duration_seconds": 218.7716045370007,
+      "stdit_backbone_latency_seconds": 206.8342734375,
+      "stdit_forward_calls": 30
+    },
+    {
+      "prompt_index": 8,
+      "window_start": "2026-09-09T15:38:53.344",
+      "window_end": "2026-09-09T15:42:32.160",
+      "sample_count": 2184,
+      "average_gpu_power_w": 357.84839285714287,
+      "average_power_above_idle_w": 300.5753261904762,
+      "busy_sample_count": 2162,
+      "busy_average_gpu_power_w": 360.73965772432933,
+      "pipeline_duration_seconds": 218.81609054599994,
+      "stdit_backbone_latency_seconds": 206.7472841796875,
+      "stdit_forward_calls": 30
+    },
+    {
+      "prompt_index": 10,
+      "window_start": "2026-09-09T15:42:32.160",
+      "window_end": "2026-09-09T15:46:10.771",
+      "sample_count": 2181,
+      "average_gpu_power_w": 358.3902292526364,
+      "average_power_above_idle_w": 301.1171625859697,
+      "busy_sample_count": 2161,
+      "busy_average_gpu_power_w": 361.036492364646,
+      "pipeline_duration_seconds": 218.61037704800037,
+      "stdit_backbone_latency_seconds": 206.59315234375,
+      "stdit_forward_calls": 30
+    }
+  ],
+  "raw_idle_csv": "/home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/power_idle.csv",
+  "raw_active_csv": "/home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/power_samples.csv"
+}
+[power] finished_at=2026-09-09T15:46:12+08:00
+[power] complete
+[power] console log:       /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/benchmark.log
+[power] latency details:   /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing.json
+[power] latency summary:   /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/timing_summary.json
+[power] idle samples:      /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/power_idle.csv
+[power] all power samples: /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/power_samples.csv
+[power] power summary:     /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/power_summary.json
+[power] combined summary:  /home/vipuser/Desktop/opensora_stdit_v4/runs/os_256_512_fp/combined_summary.json

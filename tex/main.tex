@@ -8,11 +8,12 @@
 \usepackage{cite}
 \usepackage{amsmath,amssymb}
 \usepackage{graphicx}
+\graphicspath{{../}}
 \usepackage{booktabs}
 \usepackage{xcolor}
 \usepackage{array}
 \usepackage{url}
-\usepackage{multirow}
+\input{generated/hardware_results}
 
 \title{Q-DARE: Quantization-Aligned Caching with a\\
 Dimension-Adaptive Reconfigurable Engine for\\
@@ -27,7 +28,7 @@ Video Diffusion Transformers}
 \maketitle
 
 \begin{abstract}
-Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, improving indicator correlation from \textbf{[TBD]} to \textbf{[TBD]} and cache reuse from \textbf{[TBD]} to \textbf{[TBD]} at matched generation quality. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On Open-Sora v1.2, Q-DARE achieves a VBench score of \textbf{[TBD]} versus 76.77 for the 16-bit baseline. RTL implementation in TSMC 28\,nm delivers \textbf{[TBD]}$\times$ end-to-end speedup and \textbf{[TBD]}$\times$ higher energy efficiency with \textbf{[TBD]}\% area overhead.
+Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, improving indicator correlation from \textbf{[TBD]} to \textbf{[TBD]} and cache reuse from \textbf{[TBD]} to \textbf{[TBD]} at matched generation quality. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On Open-Sora v1.2, Q-DARE achieves a VBench score of \textbf{[TBD]} versus 76.77 for the 16-bit baseline. At equal nominal peak compute, the ideal-fused 241-core cycle projection achieves \QDAREFusedGeoA$\times$ geomean STDiT speedup and \QDAREFusedGeoEnergyA$\times$ energy-efficiency proxy over the measured A100 baseline.
 \end{abstract}
 
 \begin{figure*}[t]

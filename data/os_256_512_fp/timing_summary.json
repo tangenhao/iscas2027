@@ -1,0 +1,14 @@
+{
+  "experiment": "FP16",
+  "mode": "fp",
+  "warmup": 1,
+  "measured_count": 5,
+  "metric": "CUDA-event elapsed time inside STDiT backbone forward calls only",
+  "average_seconds_per_video": 206.84228359375,
+  "average_stdit_backbone_seconds_per_video": 206.84228359375,
+  "min_stdit_backbone_seconds_per_video": 206.59315234375,
+  "max_stdit_backbone_seconds_per_video": 207.37398291015626,
+  "average_full_pipeline_seconds_per_video": 218.84805937980036,
+  "stdit_forward_calls_per_video": 30,
+  "timing_definition": "primary metric is CUDA-event elapsed time inside STDiT forward calls only; full pipeline wall time is also recorded"
+}
