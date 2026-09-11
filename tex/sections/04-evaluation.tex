@@ -1,3 +1,152 @@
+% % !TEX root = ../main.tex
+
+% \section{Evaluation}
+% \label{sec:eval}
+
+% \subsection{Experimental Setup}
+% \label{subsec:setup}
+
+% \subsubsection{Algorithm Setup}
+% We evaluate Open-Sora v1.2 STDiT3-XL/2~\cite{zheng2024opensora} on
+% VBench~\cite{huang2024vbench}. All methods generate 64-frame,
+% $512\times512$ videos with 30 rectified-flow steps under identical
+% prompts and sampling settings. We compare Original (FP16),
+% ViDiT-Q~\cite{zhao2025viditq} (linear-only W8A8),
+% TeaCache~\cite{liu2025teacache} (FP16 timestep caching), and Ours
+% (QAC with W8A8 quantization for both linear and attention operators).
+% We report VBench together with representative generated frames for
+% quantitative and qualitative quality evaluation.
+
+% \subsubsection{Hardware Setup}
+% We compare against ViDA~\cite{ding2025vida} as the custom-accelerator
+% baseline and NVIDIA A100~\cite{nvidiaA100} as the GPU baseline.
+% A cycle-level simulator models module execution and dependencies at
+% 1\,GHz. For the A100 comparison, we scale to 241 cores, giving a nominal
+% 624.672 INT8 TOPS, and assume ideal inter-core balance. For PPA, one
+% 28-nm core is normalized to 7\,nm using the factors in
+% DeepScaleTool~\cite{sarangi2021deepscaletool}; the corresponding
+% 241-core area and power are linearly scaled from the normalized core.
+% The A100 is measured directly on the same three Open-Sora workloads.
+% ViDA uses 1\,GHz and 256\,GB/s, but its paper does not report power.
+
+% \begin{table*}[t]
+% \centering
+% \caption{Measured A100 and projected ViDA/Q-DARE STDiT comparison.}
+% \label{tab:latency_comparison}
+% \scriptsize
+% \setlength{\tabcolsep}{2.6pt}
+% \resizebox{\textwidth}{!}{%
+% \begin{tabular}{@{}r rr rr rrrr rrrr@{}}
+% \toprule
+% & \multicolumn{2}{c}{\textbf{A100 measured}} &
+% \multicolumn{2}{c}{\textbf{ViDA bridged$^{a}$}} &
+% \multicolumn{4}{c}{\textbf{Q-DARE ideal fused}} &
+% \multicolumn{4}{c}{\textbf{Q-DARE upper bound$^{b}$}} \\
+% \cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-9}\cmidrule(l){10-13}
+% \textbf{Frames} & \textbf{Lat. (s)} & \textbf{Power (W)} &
+% \textbf{/A100} & \textbf{Lat. (s)} & \textbf{Lat. (s)} &
+% \textbf{/A100} & \textbf{/ViDA} & \textbf{EE$^{c}$} &
+% \textbf{Lat. (s)} & \textbf{/A100} & \textbf{/ViDA} & \textbf{EE$^{c}$} \\
+% \midrule
+% \FullComparisonRows
+% \bottomrule
+% \end{tabular}%
+% }
+% \vspace{1pt}
+% \parbox{\textwidth}{\scriptsize
+% $^{a}$ViDA Figure~7 speedup digitized and applied to our A100 latency.
+% $^{b}$Zero DMA, perfect core balance, and full PEA/VCU overlap.
+% $^{c}$Energy-efficiency proxy versus A100 using 10.508\,W linearly scaled
+% Q-DARE power; not post-layout silicon power.}
+% \end{table*}
+
+% \subsection{Algorithm Quality}
+% \label{subsec:quality}
+
+% \begin{figure}[t]
+%   \centering
+%   \includegraphics[width=\columnwidth]{fig/gen_img.pdf}
+%   \caption{Algorithm-level quality comparison on Open-Sora v1.2.
+%   VBench scores and representative frames are reported under the same
+%   prompts and sampling settings.}
+%   \label{fig:quality}
+% \end{figure}
+
+% Fig.~\ref{fig:quality} compares the original FP16 model with
+% ViDiT-Q, TeaCache, and our QAC-based inference. Ours achieves a VBench
+% score of 76.61, close to the original model (76.77), while combining
+% timestep caching with W8A8 execution for both linear and attention
+% operators. The representative frames show that the generated visual
+% content is well preserved under the proposed cache--quantization
+% co-design.
+
+% \subsection{Hardware Evaluation}
+% \label{subsec:hw_eval}
+
+% \subsubsection{Comparison with ViDA}
+% Table~\ref{tab:vida_comparison} compares Q-DARE with
+% ViDA~\cite{ding2025vida} after technology normalization to 7\,nm.
+% The requested per-core scaling maps the 28-nm values of
+% 4.2624\,mm$^2$ and 116.372\,mW to 0.134\,mm$^2$ and 43.6\,mW.
+% Linear replication to the 241-core equal-peak configuration gives
+% \QDARESystemAreaSeven\,mm$^2$ and \QDARESystemPowerSeven\,W.
+
+% \begin{table}[t]
+% \centering
+% \caption{Implementation comparison after 7-nm normalization.}
+% \label{tab:vida_comparison}
+% \footnotesize
+% \setlength{\tabcolsep}{2.4pt}
+% \renewcommand{\arraystretch}{1.05}
+% \resizebox{\columnwidth}{!}{%
+% \begin{tabular}{@{}lccc@{}}
+% \toprule
+% \textbf{Metric} & \textbf{Q-DARE/core} &
+% \textbf{Q-DARE/241 cores} & \textbf{ViDA~\cite{ding2025vida}} \\
+% \midrule
+% Technology & 28$\rightarrow$7 nm & 28$\rightarrow$7 nm & 32$\rightarrow$7 nm \\
+% Frequency & 1.0\,GHz & 1.0\,GHz & 1.0\,GHz \\
+% Precision & INT8/FP16 & INT8/FP16 & FP16 \\
+% INT8 MACs & 1,296 & \QDARESystemINTMACs & -- \\
+% FP16 MACs & 36 & \QDARESystemFPMACs & 640 \\
+% On-chip SRAM & 238.5\,KB & \QDARESystemSRAMMiB\,MiB & N/R \\
+% Area (mm$^2$) & \QDARECoreAreaSeven & \QDARESystemAreaSeven & 2.03 \\
+% Power & \QDARECorePowerSevenMW\,mW & \QDARESystemPowerSeven\,W & N/R \\
+% 64F throughput$^{a}$ & \QDARECoreThroughputSF &
+% \QDARESystemThroughputSF & \ViDABridgedThroughputSF \\
+% Area efficiency$^{a}$ & \QDAREAreaEfficiencySF &
+% \QDAREAreaEfficiencySF & \ViDAAreaEfficiencySF \\
+% \bottomrule
+% \end{tabular}%
+% }
+% \vspace{1pt}
+% \parbox{\columnwidth}{\scriptsize
+% $^{a}$Videos/s and videos/s/mm$^2$ for OS-64-512. Q-DARE is the
+% ideal-fused projection; ViDA is bridged through the measured A100 latency.}
+% \end{table}
+
+% ViDA prints only its 16.44$\times$ geomean A100 speedup. Digitizing its
+% three Open-Sora GPU bars gives 15.72/16.29/17.20$\times$ and reproduces
+% the printed geomean across all eight bars. We bridge these values through
+% our measured A100 latency in Table~\ref{tab:latency_comparison}; the
+% ViDA latency columns are thus estimates, not same-stack measurements.
+
+% \subsubsection{Comparison with GPU}
+% Table~\ref{tab:latency_comparison} compares the measured A100 with our
+% equal-peak projections. Ideal fusion reaches \QDAREFusedGeoA$\times$
+% geomean speedup; the zero-DMA, perfect-balance, full-overlap result is
+% an upper bound rather than measured RTL latency.
+
+% The 10.508-W value linearly scales 43.6\,mW/core and excludes NoC,
+% clock-tree, memory, I/O, and DRAM overhead. The source power netlist also
+% omits the PEA datapath, while A100 power covers a slightly wider window.
+% Thus, the \QDAREFusedGeoEnergyA$\times$ fused and
+% \QDAREUpperGeoEnergyA$\times$ upper-bound geomeans are optimistic
+% energy proxies, not silicon claims.
+
+
+% !TEX root = ../main.tex
+
 % !TEX root = ../main.tex
 
 \section{Evaluation}
@@ -20,45 +169,15 @@ quantitative and qualitative quality evaluation.
 \subsubsection{Hardware Setup}
 We compare against ViDA~\cite{ding2025vida} as the custom-accelerator
 baseline and NVIDIA A100~\cite{nvidiaA100} as the GPU baseline.
-A cycle-level simulator models module execution and dependencies at
-1\,GHz. For the A100 comparison, we scale to 241 cores, giving a nominal
-624.672 INT8 TOPS, and assume ideal inter-core balance. For PPA, one
-28-nm core is normalized to 7\,nm using the factors in
-DeepScaleTool~\cite{sarangi2021deepscaletool}; the corresponding
-241-core area and power are linearly scaled from the normalized core.
-The A100 is measured directly on the same three Open-Sora workloads.
-ViDA uses 1\,GHz and 256\,GB/s, but its paper does not report power.
-
-\begin{table*}[t]
-\centering
-\caption{Measured A100 and projected ViDA/Q-DARE STDiT comparison.}
-\label{tab:latency_comparison}
-\scriptsize
-\setlength{\tabcolsep}{2.6pt}
-\resizebox{\textwidth}{!}{%
-\begin{tabular}{@{}r rr rr rrrr rrrr@{}}
-\toprule
-& \multicolumn{2}{c}{\textbf{A100 measured}} &
-\multicolumn{2}{c}{\textbf{ViDA bridged$^{a}$}} &
-\multicolumn{4}{c}{\textbf{Q-DARE ideal fused}} &
-\multicolumn{4}{c}{\textbf{Q-DARE upper bound$^{b}$}} \\
-\cmidrule(lr){2-3}\cmidrule(lr){4-5}\cmidrule(lr){6-9}\cmidrule(l){10-13}
-\textbf{Frames} & \textbf{Lat. (s)} & \textbf{Power (W)} &
-\textbf{/A100} & \textbf{Lat. (s)} & \textbf{Lat. (s)} &
-\textbf{/A100} & \textbf{/ViDA} & \textbf{EE$^{c}$} &
-\textbf{Lat. (s)} & \textbf{/A100} & \textbf{/ViDA} & \textbf{EE$^{c}$} \\
-\midrule
-\FullComparisonRows
-\bottomrule
-\end{tabular}%
-}
-\vspace{1pt}
-\parbox{\textwidth}{\scriptsize
-$^{a}$ViDA Figure~7 speedup digitized and applied to our A100 latency.
-$^{b}$Zero DMA, perfect core balance, and full PEA/VCU overlap.
-$^{c}$Energy-efficiency proxy versus A100 using 10.508\,W linearly scaled
-Q-DARE power; not post-layout silicon power.}
-\end{table*}
+The complete Q-DARE design, including logic and on-chip SRAM, is
+synthesized in TSMC 28\,nm at 1\,GHz. Following
+ViDA~\cite{ding2025vida}, its PPA is normalized to 7\,nm using
+DeepScaleTool~\cite{sarangi2021deepscaletool}. A cycle-level simulator
+models module execution and dependencies to obtain accelerator latency.
+For the A100 comparison, Q-DARE is projected to 241 cores, giving a
+nominal 624.672 INT8 TOPS, while the A100 is measured directly on the
+same 64-, 256-, and 512-frame Open-Sora workloads. The ViDA comparison
+follows its 1\,GHz frequency and 256\,GB/s off-chip bandwidth setting.
 
 \subsection{Algorithm Quality}
 \label{subsec:quality}
@@ -84,62 +203,124 @@ co-design.
 \label{subsec:hw_eval}
 
 \subsubsection{Comparison with ViDA}
-Table~\ref{tab:vida_comparison} compares Q-DARE with
-ViDA~\cite{ding2025vida} after technology normalization to 7\,nm.
-The requested per-core scaling maps the 28-nm values of
-4.2624\,mm$^2$ and 116.372\,mW to 0.134\,mm$^2$ and 43.6\,mW.
-Linear replication to the 241-core equal-peak configuration gives
-\QDARESystemAreaSeven\,mm$^2$ and \QDARESystemPowerSeven\,W.
+Table~\ref{tab:vida_comparison} summarizes both the hardware
+configuration and the normalized comparison with
+ViDA~\cite{ding2025vida}. Since ViDA reports A100-relative performance
+rather than absolute latency, we follow its reporting convention for
+video throughput and area efficiency. ViDA throughput is digitized from
+its Fig.~7 and bridged through our measured A100 latency.
 
 \begin{table}[t]
 \centering
-\caption{Implementation comparison after 7-nm normalization.}
+\caption{Implementation characteristics and normalized comparison with ViDA.}
 \label{tab:vida_comparison}
-\footnotesize
-\setlength{\tabcolsep}{2.4pt}
-\renewcommand{\arraystretch}{1.05}
+\scriptsize
+\setlength{\tabcolsep}{3.0pt}
+\renewcommand{\arraystretch}{1.06}
+
 \resizebox{\columnwidth}{!}{%
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}ccc@{}}
 \toprule
-\textbf{Metric} & \textbf{Q-DARE/core} &
-\textbf{Q-DARE/241 cores} & \textbf{ViDA~\cite{ding2025vida}} \\
+\textbf{Metric} &
+\textbf{Q-DARE} &
+\textbf{ViDA~\cite{ding2025vida}} \\
 \midrule
-Technology & 28$\rightarrow$7 nm & 28$\rightarrow$7 nm & 32$\rightarrow$7 nm \\
-Frequency & 1.0\,GHz & 1.0\,GHz & 1.0\,GHz \\
-Precision & INT8/FP16 & INT8/FP16 & FP16 \\
-INT8 MACs & 1,296 & \QDARESystemINTMACs & -- \\
-FP16 MACs & 36 & \QDARESystemFPMACs & 640 \\
-On-chip SRAM & 238.5\,KB & \QDARESystemSRAMMiB\,MiB & N/R \\
-Area (mm$^2$) & \QDARECoreAreaSeven & \QDARESystemAreaSeven & 2.03 \\
-Power & \QDARECorePowerSevenMW\,mW & \QDARESystemPowerSeven\,W & N/R \\
-64F throughput$^{a}$ & \QDARECoreThroughputSF &
-\QDARESystemThroughputSF & \ViDABridgedThroughputSF \\
-Area efficiency$^{a}$ & \QDAREAreaEfficiencySF &
-\QDAREAreaEfficiencySF & \ViDAAreaEfficiencySF \\
+
+\multicolumn{3}{c}{\textbf{Implementation Characteristics}} \\
+\midrule
+
+Technology
+  & 28$\rightarrow$7 nm
+  & 32$\rightarrow$7 nm \\
+
+Frequency
+  & 1.0\,GHz
+  & 1.0\,GHz \\
+
+Precision
+  & INT8/FP16
+  & FP16 \\
+
+\multirow[c]{2}{*}{Compute}
+  & 1296 INT8 MACs
+  & \multirow[c]{2}{*}{640 FP16 MACs} \\
+  & 36 FP16 MACs
+  & \\
+
+On-chip SRAM
+  & 238.5\,KB
+  & N/R \\
+
+Memory BW
+  & 256\,GB/s
+  & 256\,GB/s \\
+
+Area (mm$^2$)
+  & 0.134
+  & 2.03 \\
+
+Power (mW)
+  & 43.6
+  & N/R \\
+
+\midrule
+\multicolumn{3}{c}{\textbf{Normalized Results}} \\
+\midrule
+
+64F Throughput
+  & 0.292$\times$
+  & 1.00$\times$ \\
+
+256F Throughput
+  & 0.320$\times$
+  & 1.00$\times$ \\
+
+512F Throughput
+  & 0.324$\times$
+  & 1.00$\times$ \\
+
+Throughput Geomean
+  & \textbf{0.31$\times$}
+  & 1.00$\times$ \\
+
+Area Eff. Geomean
+  & \textbf{7.10$\times$}
+  & 1.00$\times$ \\
+
 \bottomrule
 \end{tabular}%
 }
+
 \vspace{1pt}
 \parbox{\columnwidth}{\scriptsize
-$^{a}$Videos/s and videos/s/mm$^2$ for OS-64-512. Q-DARE is the
-ideal-fused projection; ViDA is bridged through the measured A100 latency.}
+64F, 256F, and 512F denote the number of video frames; all workloads
+use $512\times512$ resolution. Throughput and area efficiency are
+normalized to ViDA.}
 \end{table}
 
-ViDA prints only its 16.44$\times$ geomean A100 speedup. Digitizing its
-three Open-Sora GPU bars gives 15.72/16.29/17.20$\times$ and reproduces
-the printed geomean across all eight bars. We bridge these values through
-our measured A100 latency in Table~\ref{tab:latency_comparison}; the
-ViDA latency columns are thus estimates, not same-stack measurements.
+Q-DARE achieves 0.292--0.324$\times$ the video throughput of ViDA,
+with a 0.31$\times$ geomean, while improving geomean area efficiency
+by 7.10$\times$. This tradeoff reflects Q-DARE's substantially smaller
+normalized area while retaining competitive end-to-end throughput.
 
 \subsubsection{Comparison with GPU}
-Table~\ref{tab:latency_comparison} compares the measured A100 with our
-equal-peak projections. Ideal fusion reaches \QDAREFusedGeoA$\times$
-geomean speedup; the zero-DMA, perfect-balance, full-overlap result is
-an upper bound rather than measured RTL latency.
+Fig.~\ref{fig:a100_comparison} compares absolute STDiT throughput and
+energy efficiency with the measured A100 baseline. Across 64-, 256-,
+and 512-frame workloads, Q-DARE achieves 2.90$\times$, 3.30$\times$,
+and 3.55$\times$ higher STDiT throughput, respectively, corresponding
+to a 3.24$\times$ geomean. The corresponding energy-efficiency gains
+are 105.8$\times$, 113.9$\times$, and 113.2$\times$, with a
+110.9$\times$ geomean.
 
-The 10.508-W value linearly scales 43.6\,mW/core and excludes NoC,
-clock-tree, memory, I/O, and DRAM overhead. The source power netlist also
-omits the PEA datapath, while A100 power covers a slightly wider window.
-Thus, the \QDAREFusedGeoEnergyA$\times$ fused and
-\QDAREUpperGeoEnergyA$\times$ upper-bound geomeans are optimistic
-energy proxies, not silicon claims.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig/vs_A100.pdf}
+  \caption{Comparison with NVIDIA A100 across different video lengths:
+  (a) STDiT throughput in steps/s and (b) energy efficiency in steps/s/kW.}
+  \label{fig:a100_comparison}
+\end{figure}
+
+The Q-DARE points use the FSDB-calibrated schedule with the
+regular-attention VCU reduced to the measured PEA service floor.
+They are projected architecture results rather than complete full-block
+RTL measurements, whereas the A100 results are directly measured.

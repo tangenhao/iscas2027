@@ -6,17 +6,24 @@
 \subsection{Architecture Overview}
 As summarized by the lower path of Fig.~\ref{fig:overview}, the variable sequence dimension $L$ appears on the output axis of $QK^{\mathsf T}$ but on the reduction axis of $PV$. DARE adapts these two axes around one shared $36\times36$ INT8 PEA rather than provisioning separate spatial and temporal engines. The PEA contains 1296 INT8 MACs, while a 36-MAC FP16 VCU handles nonlinear operations. The compute cluster integrates 238.5\,KB on-chip SRAM and eight 256-bit DMA channels, providing 256\,GB/s aggregate bandwidth at 1\,GHz.
 
-\begin{figure}[t]
+% \begin{figure}[t]
+%   \centering
+%   \IfFileExists{fig/dare_arch.pdf}
+%     {\includegraphics[width=\columnwidth]{fig/dare_arch.pdf}}
+%     {\fbox{\parbox[c][1.02in][c]{0.94\columnwidth}{\centering\footnotesize
+%     DARE architecture placeholder:\\
+%     DMA/Load $\rightarrow$ IFMAP/Weight SRAM $\rightarrow$ shared
+%     $36\times36$ PEA $\rightarrow$ VCU/OFMAP SRAM.}}}
+%   \caption{DARE reconfigures lane ownership, reduction boundaries, and local data access around a shared arithmetic datapath.}
+%   \label{fig:dare_arch}
+% \end{figure}
+
+\begin{figure*}[t]
   \centering
-  \IfFileExists{fig/dare_arch.pdf}
-    {\includegraphics[width=\columnwidth]{fig/dare_arch.pdf}}
-    {\fbox{\parbox[c][1.02in][c]{0.94\columnwidth}{\centering\footnotesize
-    DARE architecture placeholder:\\
-    DMA/Load $\rightarrow$ IFMAP/Weight SRAM $\rightarrow$ shared
-    $36\times36$ PEA $\rightarrow$ VCU/OFMAP SRAM.}}}
-  \caption{DARE reconfigures lane ownership, reduction boundaries, and local data access around a shared arithmetic datapath.}
+  \includegraphics[width=\textwidth]{fig/hardware-overview.pdf}
+  \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
   \label{fig:dare_arch}
-\end{figure}
+\end{figure*}
 
 DARE encodes these execution modes in the existing 128-bit GEMM instruction. The \texttt{temporal\_length} field selects the active sequence length, while dedicated control bits select temporal QK head packing, segmented reduction, and V replay. Other GEMM and attention configurations retain the conventional execution mode, allowing the same datapath to serve general linear and attention operations.
 
