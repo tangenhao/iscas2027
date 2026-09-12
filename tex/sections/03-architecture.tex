@@ -42,15 +42,10 @@ In $PV$, $L$ becomes the reduction dimension. Padding every short reduction to 3
 
 At the tree output, a persistent accumulator implements cross-beat handoff. With no completed reduction, the current segment extends the accumulator. With one completion, the accumulated first segment is emitted and the second segment initializes the next reduction. With two completions, two results are emitted and the third segment becomes the new tail. Two logical completion writes can therefore occur in one cycle. The physical OFMAP storage remains a single $1152\times128$ SRAM; when two results complete together, the secondary result enters a 16-entry deferred-write FIFO and is drained to the same SRAM before the next consumer accesses the data.
 
+
 \begin{figure}[t]
   \centering
-  \IfFileExists{fig/dare_modes.pdf}
-    {\includegraphics[width=\columnwidth]{fig/dare_modes.pdf}}
-    {\fbox{\parbox[c][0.90in][c]{0.94\columnwidth}{\centering\footnotesize
-    Dual-axis adaptation placeholder:\\
-    (a) temporal $QK^{\mathsf T}$: 36 lanes/head $\rightarrow$ four 9-lane groups;\\
-    (b) temporal $PV$: padded rows $\rightarrow$ tagged product stream
-    $\rightarrow$ segmented reduction + accumulator handoff.}}}
+  \includegraphics[width=\columnwidth]{fig/pea.pdf}
   \caption{DARE mechanisms for temporal QK head packing and boundary-aware segmented PV reduction.}
   \label{fig:dare_modes}
 \end{figure}

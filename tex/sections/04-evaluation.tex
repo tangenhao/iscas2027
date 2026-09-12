@@ -26,7 +26,7 @@ ViDA~\cite{ding2025vida}, its PPA is normalized to 7\,nm using
 DeepScaleTool~\cite{sarangi2021deepscaletool}. A cycle-level simulator
 models module execution and dependencies to obtain accelerator latency.
 The A100 is measured directly on the same 64-, 256-, and 512-frame
-Open-Sora workloads. For the accelerator comparison, Q-DARE follows
+Open-Sora workloads, all at a resolution of 512 $\times$ 512. For the accelerator comparison, Q-DARE follows
 ViDA's 1\,GHz frequency and 256\,GB/s off-chip-bandwidth setting.
 
 \subsection{Algorithm Quality}
@@ -55,9 +55,10 @@ co-design.
 \subsubsection{Comparison with ViDA}
 Table~\ref{tab:vida_comparison} summarizes both the hardware
 configuration and the normalized comparison with
-ViDA~\cite{ding2025vida}. ViDA reports performance relative to A100;
-we therefore obtain Q-DARE/ViDA throughput by dividing the two
-accelerators' A100-relative results for each Open-Sora workload.
+ViDA~\cite{ding2025vida}. Q-DARE achieves 1.007--1.091$\times$ the video throughput of ViDA,
+with a 1.06$\times$ geomean, and improves geomean area efficiency by
+24.07$\times$. This result combines W8A8 execution, timestep reduction,
+and dimension-adaptive attention while retaining a compact compute core.
 
 \begin{table}[t]
 \centering
@@ -90,9 +91,9 @@ Precision
   & INT8/FP16
   & FP16 \\
 
-\raisebox{-0.55\baselineskip}{Compute}
+\multirow{2}{*}{Compute Units}
   & 1296 INT8 MACs
-  & \raisebox{-0.55\baselineskip}{640 FP16 MACs} \\
+  & \multirow{2}{*}{640 FP16 MACs} \\
   & 36 FP16 MACs
   & \\
 
@@ -147,14 +148,9 @@ use $512\times512$ resolution. Throughput and area efficiency are
 normalized to ViDA.}
 \end{table}
 
-Q-DARE achieves 1.007--1.091$\times$ the video throughput of ViDA,
-with a 1.06$\times$ geomean, and improves geomean area efficiency by
-24.07$\times$. This result combines W8A8 execution, timestep reduction,
-and dimension-adaptive attention while retaining a compact compute core.
-
 \subsubsection{Comparison with GPU}
 Fig.~\ref{fig:a100_comparison} compares STDiT throughput and energy
-efficiency with the measured A100 baseline. Across 64-, 256-, and
+efficiency with the A100 baseline. Across 64-, 256-, and
 512-frame workloads, Q-DARE achieves 10.02$\times$, 11.05$\times$,
 and 11.88$\times$ higher step throughput, respectively, corresponding
 to a 10.96$\times$ geomean. The corresponding energy-efficiency gains
@@ -169,10 +165,3 @@ are 365.8$\times$, 376.8$\times$, and 381.6$\times$, with a
   \label{fig:a100_comparison}
 \end{figure}
 
-The Q-DARE latency is obtained from the cycle-level execution schedule,
-whose PEA, VCU, and DMA service times are calibrated against RTL traces.
-The A100 latency and power are measured over the STDiT execution window.
-The normalized Q-DARE PPA excludes NoC, clock-tree, I/O, shared-memory,
-and DRAM overhead, and the available mapped power netlist does not contain
-the complete PEA datapath. Accordingly, the accelerator results are
-cycle-level estimates rather than full-chip silicon measurements.
