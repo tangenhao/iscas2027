@@ -1,6 +1,6 @@
 % ======================================================================
-% Working draft for IEEE ISCAS 2027
-% Clean wording version: no custom numerical/result macros.
+% Revised working draft for IEEE ISCAS 2027
+% Narrative-priority pass: Abstract+Introduction and Evaluation+Conclusion
 % ======================================================================
 
 \documentclass[conference]{IEEEtran}
@@ -14,8 +14,6 @@
 \usepackage{array}
 \usepackage{url}
 \usepackage{multirow}
-
-
 
 \input{generated/hardware_results}
 
@@ -32,13 +30,13 @@ Video Diffusion Transformers}
 \maketitle
 
 \begin{abstract}
-Video Diffusion Transformers (VDiTs) incur high inference cost from iterative denoising. Caching and low-bit quantization reduce the number and cost of recomputed steps, respectively, but their direct composition exposes two coupled inefficiencies: full-precision cache indicators can be misaligned with quantized execution, while asymmetric spatial/temporal attention shapes fragment fixed-width processing arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, aligning cache decisions with the computation that is actually executed. DARE adapts output parallelism for $QK^{\mathsf T}$ and reduction parallelism for $PV$ on a shared datapath, mitigating shape fragmentation without duplicating the arithmetic array. On Open-Sora v1.2, Q-DARE achieves a VBench score of 76.61 versus 76.77 for the 16-bit baseline. \textbf{Q-DARE} achieves \QDAREGeoA$\times$ geomean end-to-end speedup and \QDAREEnergyGeoA$\times$ step-throughput-per-watt improvement over the A100 baseline.
+Video Diffusion Transformers (VDiTs) repeatedly execute expensive spatial--temporal transformer blocks during denoising. Caching and quantization reduce the number and cost of recomputed steps, but their naive composition creates two mismatches: full-precision cache indicators need not reflect quantized execution, and asymmetric spatial/temporal attention shapes underutilize fixed-width arrays. We present \textbf{Q-DARE}, an algorithm--hardware co-design combining \emph{quantization-aligned caching} (QAC) with a \emph{dimension-adaptive reconfigurable engine} (DARE). QAC evaluates and calibrates cache relevance in the quantized domain, while DARE adapts the output axis of $QK^{\mathsf T}$ and reduction axis of $PV$ on one shared datapath. On Open-Sora v1.2, Q-DARE obtains a VBench score of 76.61 versus 76.77 for FP16. Across 64--512-frame workloads, Q-DARE achieves \QDAREStepGeoA$\times$ geomean STDiT step-throughput speedup and \QDAREEnergyGeoA$\times$ step-throughput-per-watt improvement over A100, while reaching \QDAREViDAThroughputGeo$\times$ geomean video throughput and \QDAREViDAreaGeo$\times$ geomean area efficiency over ViDA.
 \end{abstract}
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{fig/overview.pdf}
-  \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
+  \caption{Q-DARE co-design overview: QAC aligns cache decisions with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal shape asymmetry.}
   \label{fig:overview}
 \end{figure*}
 
@@ -48,6 +46,7 @@ Video Diffusion Transformers (VDiTs) incur high inference cost from iterative de
 \input{sections/04-evaluation}
 \input{sections/05-conclusion}
 
+\clearpage
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 

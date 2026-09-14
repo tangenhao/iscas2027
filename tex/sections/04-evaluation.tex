@@ -1,167 +1,74 @@
 % !TEX root = ../main.tex
-
 \section{Evaluation}
 \label{sec:eval}
 
 \subsection{Experimental Setup}
-\label{subsec:setup}
+\textbf{Algorithm.} We evaluate Open-Sora v1.2 STDiT3-XL/2~\cite{zheng2024opensora} on VBench~\cite{huang2024vbench}. All quality runs generate 64-frame, $512\times512$ videos with 30 rectified-flow steps under identical prompts and sampling settings. We compare Original (FP16), ViDiT-Q~\cite{zhao2025viditq} (linear-only W8A8), TeaCache~\cite{liu2025teacache} (FP16 timestep caching), and Q-DARE (QAC with W8A8 linear and attention execution).
 
-\subsubsection{Algorithm Setup}
-We evaluate Open-Sora v1.2 STDiT3-XL/2~\cite{zheng2024opensora} on
-VBench~\cite{huang2024vbench}. All methods generate 64-frame,
-$512\times512$ videos with 30 rectified-flow steps under identical
-prompts and sampling settings. We compare Original (FP16),
-ViDiT-Q~\cite{zhao2025viditq} (linear-only W8A8),
-TeaCache~\cite{liu2025teacache} (FP16 timestep caching), and Ours
-(QAC with W8A8 quantization for both linear and attention operators).
-We report VBench together with representative generated frames for
-quantitative and qualitative quality evaluation.
-
-\subsubsection{Hardware Setup}
-We compare against ViDA~\cite{ding2025vida} as the custom-accelerator
-baseline and NVIDIA A100~\cite{nvidiaA100} as the GPU baseline.
-The Q-DARE logic and available on-chip SRAM macros are synthesized in
-TSMC 28\,nm at 1\,GHz. Following
-ViDA~\cite{ding2025vida}, its PPA is normalized to 7\,nm using
-DeepScaleTool~\cite{sarangi2021deepscaletool}. A cycle-level simulator
-models module execution and dependencies to obtain accelerator latency.
-The A100 is measured directly on the same 64-, 256-, and 512-frame
-Open-Sora workloads, all at a resolution of 512 $\times$ 512. For the accelerator comparison, Q-DARE follows
-ViDA's 1\,GHz frequency and 256\,GB/s off-chip-bandwidth setting.
+\textbf{Hardware.} We compare against ViDA~\cite{ding2025vida} and NVIDIA A100~\cite{nvidiaA100}. Q-DARE is synthesized in TSMC 28\,nm at 1\,GHz and normalized to 7\,nm with DeepScaleTool~\cite{sarangi2021deepscaletool}, following ViDA's comparison setting. A cycle-level simulator models accelerator latency. A100 is measured on the same 64-, 256-, and 512-frame, $512\times512$ Open-Sora workloads; Q-DARE uses ViDA's 1\,GHz and 256\,GB/s off-chip-bandwidth setting.
 
 \subsection{Algorithm Quality}
-\label{subsec:quality}
-
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{fig/gen_img.pdf}
-  \caption{Algorithm-level quality comparison on Open-Sora v1.2.
-  VBench scores and representative frames are reported under the same
-  prompts and sampling settings.}
+  \caption{Open-Sora v1.2 quality comparison under identical prompts and sampling settings.}
   \label{fig:quality}
 \end{figure}
 
-Fig.~\ref{fig:quality} compares the original FP16 model with
-ViDiT-Q, TeaCache, and our QAC-based inference. Ours achieves a VBench
-score of 76.61, close to the original model (76.77), while combining
-timestep caching with W8A8 execution for both linear and attention
-operators. The representative frames show that the generated visual
-content is well preserved under the proposed cache--quantization
-co-design.
+Fig.~\ref{fig:quality} shows that Q-DARE reaches 76.61 VBench, only 0.16 below FP16 (76.77), while jointly applying timestep caching and W8A8 linear/attention execution. TeaCache reaches 75.88 under FP16 caching, whereas ViDiT-Q reaches 76.79 with quantization alone. Q-DARE therefore retains near-FP16 generation quality while combining both acceleration dimensions.
 
 \subsection{Hardware Evaluation}
-\label{subsec:hw_eval}
-
-\subsubsection{Comparison with ViDA}
-Table~\ref{tab:vida_comparison} summarizes both the hardware
-configuration and the normalized comparison with
-ViDA~\cite{ding2025vida}. Q-DARE achieves 1.007--1.091$\times$ the video throughput of ViDA,
-with a 1.06$\times$ geomean, and improves geomean area efficiency by
-24.07$\times$. This result combines W8A8 execution, timestep reduction,
-and dimension-adaptive attention while retaining a compact compute core.
+\textbf{Comparison with ViDA.}
+Table~\ref{tab:vida_comparison} summarizes the implementation characteristics and comparison with ViDA~\cite{ding2025vida}. Q-DARE reaches \QDAREViDAThroughputGeo$\times$ geomean video throughput and \QDAREViDAreaGeo$\times$ geomean area efficiency. Its throughput advantage increases from 1.007$\times$ at 64 frames to 1.091$\times$ at 512 frames, showing that the adaptive dataflows extend beyond the representative short-$T$ case used to explain the microarchitecture.
 
 \begin{table}[t]
 \centering
-\caption{Implementation characteristics and normalized comparison with ViDA.}
+\caption{Implementation and normalized comparison with ViDA.}
 \label{tab:vida_comparison}
 \scriptsize
 \setlength{\tabcolsep}{3.0pt}
-\renewcommand{\arraystretch}{1.06}
-
+\renewcommand{\arraystretch}{1.04}
 \resizebox{\columnwidth}{!}{%
 \begin{tabular}{@{}ccc@{}}
 \toprule
-\textbf{Metric} &
-\textbf{Q-DARE} &
-\textbf{ViDA~\cite{ding2025vida}} \\
+\textbf{Metric} & \textbf{Q-DARE} & \textbf{ViDA~\cite{ding2025vida}} \\
 \midrule
-
 \multicolumn{3}{c}{\textbf{Implementation Characteristics}} \\
 \midrule
-
-Technology
-  & 28$\rightarrow$7 nm
-  & 32$\rightarrow$7 nm \\
-
-Frequency
-  & 1.0\,GHz
-  & 1.0\,GHz \\
-
-Precision
-  & INT8/FP16
-  & FP16 \\
-
+Technology & 28$\rightarrow$7 nm & 32$\rightarrow$7 nm \\
+Frequency & 1.0\,GHz & 1.0\,GHz \\
+Precision & INT8/FP16 & FP16 \\
 \multirow{2}{*}{Compute Units}
-  & 1296 INT8 MACs
-  & \multirow{2}{*}{640 FP16 MACs} \\
-  & 36 FP16 MACs
-  & \\
-
-On-chip SRAM
-  & 238.5\,KB
-  & N/R \\
-
-Memory BW
-  & 256\,GB/s
-  & 256\,GB/s \\
-
-Area (mm$^2$)
-  & 0.134
-  & 2.03 \\
-
-Power (mW)
-  & 43.6
-  & N/R \\
-
+  & 1296 INT8 MACs & \multirow{2}{*}{640 FP16 MACs} \\
+  & 36 FP16 MACs & \\
+On-chip SRAM & 238.5\,KB & N/R \\
+Memory BW & 256\,GB/s & 256\,GB/s \\
+Area (mm$^2$) & 0.134 & 2.03 \\
+Power (mW) & 43.6 & N/R \\
 \midrule
 \multicolumn{3}{c}{\textbf{Normalized Results}} \\
 \midrule
-
-64F Throughput
-  & 1.007$\times$
-  & 1.00$\times$ \\
-
-256F Throughput
-  & 1.071$\times$
-  & 1.00$\times$ \\
-
-512F Throughput
-  & 1.091$\times$
-  & 1.00$\times$ \\
-
-Throughput Geomean
-  & \textbf{1.06$\times$}
-  & 1.00$\times$ \\
-
-Area Eff. Geomean
-  & \textbf{24.07$\times$}
-  & 1.00$\times$ \\
-
+64F Throughput & 1.007$\times$ & 1.00$\times$ \\
+256F Throughput & 1.071$\times$ & 1.00$\times$ \\
+512F Throughput & 1.091$\times$ & 1.00$\times$ \\
+Throughput Geomean & \textbf{\QDAREViDAThroughputGeo$\times$} & 1.00$\times$ \\
+Area Eff. Geomean & \textbf{\QDAREViDAreaGeo$\times$} & 1.00$\times$ \\
 \bottomrule
 \end{tabular}%
 }
-
 \vspace{1pt}
 \parbox{\columnwidth}{\scriptsize
-64F, 256F, and 512F denote the number of video frames; all workloads
-use $512\times512$ resolution. Throughput and area efficiency are
-normalized to ViDA.}
+64F, 256F, and 512F denote video frames; all workloads use $512\times512$ resolution. Throughput and area efficiency are normalized to ViDA.}
 \end{table}
 
-\subsubsection{Comparison with GPU}
-Fig.~\ref{fig:a100_comparison} compares STDiT throughput and energy
-efficiency with the A100 baseline. Across 64-, 256-, and
-512-frame workloads, Q-DARE achieves 10.02$\times$, 11.05$\times$,
-and 11.88$\times$ higher step throughput, respectively, corresponding
-to a 10.96$\times$ geomean. The corresponding energy-efficiency gains
-are 365.8$\times$, 376.8$\times$, and 381.6$\times$, with a
-374.7$\times$ geomean.
+\textbf{Comparison with A100.}
+Fig.~\ref{fig:a100_comparison} compares STDiT step throughput and energy efficiency with A100. Q-DARE provides 10.02--11.88$\times$ step-throughput speedup across the three video lengths, with a \QDAREStepGeoA$\times$ geomean. Energy-efficiency gains range from 365.8$\times$ to 381.6$\times$, with a \QDAREEnergyGeoA$\times$ geomean. The stable gain across video lengths indicates that adaptive-control overhead remains small as temporal length grows; the step-throughput metric isolates accelerator speed from the additional reduction in executed steps due to caching.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{fig/vs_A100.pdf}
-  \caption{Comparison with NVIDIA A100 across different video lengths:
-  (a) STDiT throughput in steps/s and (b) energy efficiency in steps/s/kW.}
+  \caption{A100 comparison across video lengths: (a) STDiT step throughput and (b) energy efficiency.}
   \label{fig:a100_comparison}
 \end{figure}
 
+Overall, the results separate the two sources of gain: QAC removes redundant STDiT executions, while DARE improves utilization of each executed step. The near-FP16 VBench score shows that combining these two mechanisms does not introduce a corresponding quality collapse.

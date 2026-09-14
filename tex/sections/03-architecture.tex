@@ -1,56 +1,33 @@
 % !TEX root = ../main.tex
 \section{DARE: Dimension-Adaptive Reconfigurable Engine}
 \label{sec:hardware}
-\label{sec:characterization}
-
-\subsection{Architecture Overview}
-As summarized by the lower path of Fig.~\ref{fig:overview}, the variable sequence dimension $L$ appears on the output axis of $QK^{\mathsf T}$ but on the reduction axis of $PV$. DARE adapts these two axes around one shared $36\times36$ INT8 PEA rather than provisioning separate spatial and temporal engines. The PEA contains 1296 INT8 MACs, while a 36-MAC FP16 VCU handles nonlinear operations. The compute cluster integrates 238.5\,KB on-chip SRAM and eight 256-bit DMA channels, providing 256\,GB/s aggregate bandwidth at 1\,GHz.
-
-% \begin{figure}[t]
-%   \centering
-%   \IfFileExists{fig/dare_arch.pdf}
-%     {\includegraphics[width=\columnwidth]{fig/dare_arch.pdf}}
-%     {\fbox{\parbox[c][1.02in][c]{0.94\columnwidth}{\centering\footnotesize
-%     DARE architecture placeholder:\\
-%     DMA/Load $\rightarrow$ IFMAP/Weight SRAM $\rightarrow$ shared
-%     $36\times36$ PEA $\rightarrow$ VCU/OFMAP SRAM.}}}
-%   \caption{DARE reconfigures lane ownership, reduction boundaries, and local data access around a shared arithmetic datapath.}
-%   \label{fig:dare_arch}
-% \end{figure}
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{fig/hardware-overview.pdf}
-  \caption{Overview of Q-DARE. QAC aligns caching with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal matrix asymmetry.}
+  \caption{DARE hardware organization: (a) shared PEA/VCU hierarchy; (b) mode-controlled address generation, $4\times9$ lane mapping, replay, and segmented reduction around the same 36 lanes; and (c) the unchanged FP16 VCU path.}
   \label{fig:dare_arch}
 \end{figure*}
-
-DARE encodes these execution modes in the existing 128-bit GEMM instruction. The \texttt{temporal\_length} field selects the active sequence length, while dedicated control bits select temporal QK head packing, segmented reduction, and V replay. Other GEMM and attention configurations retain the conventional execution mode, allowing the same datapath to serve general linear and attention operations.
-
-\subsection{Output-Axis Adaptation for $QK^{\mathsf T}$}
-A conventional temporal $QK^{\mathsf T}$ mapping assigns all 36 score lanes to one head; at $T=19$, only $19/36=52.8\%$ are useful. DARE instead partitions the physical lanes as
-\begin{equation}
- 36\ \text{lanes}\rightarrow4\ \text{heads}\times9\ \text{lanes/head}.
- \label{eq:qk_partition}
-\end{equation}
-For temporal attention with $K=72$ and $1\leq T\leq36$, the controller issues $\lceil T/9\rceil$ key tiles, with two 36-element beats completing the reduction dimension. Thus, $T=19$ uses three key tiles and raises lane occupancy to $19/27=70.4\%$.
-
-The four heads retain independent score tiles but share the same multiplier array. Readiness tracking allows the four first Q halves to trigger the first K-half computation while the second Q halves are still being fetched. After the second K half completes the 72-element dot products, packed scores are drained as conventional contiguous score words, so the downstream VCU does not need to interpret the packed lane layout. The optimization therefore changes scheduling and lane ownership rather than duplicating arithmetic resources.
-
-\subsection{Boundary-Aware Segmented Reduction for $PV$}
-In $PV$, $L$ becomes the reduction dimension. Padding every short reduction to 36 products wastes lanes even when products from adjacent reductions are available. DARE instead streams adjacent reductions through the same 36-product beat. Each beat carries up to two reduction boundaries and therefore contains at most three contiguous segments. A six-level reduction tree propagates both partial sums and segment tags; neighboring values are accumulated only when their tags match, preventing cross-reduction interference.
-
-At the tree output, a persistent accumulator implements cross-beat handoff. With no completed reduction, the current segment extends the accumulator. With one completion, the accumulated first segment is emitted and the second segment initializes the next reduction. With two completions, two results are emitted and the third segment becomes the new tail. Two logical completion writes can therefore occur in one cycle. The physical OFMAP storage remains a single $1152\times128$ SRAM; when two results complete together, the secondary result enters a 16-entry deferred-write FIFO and is drained to the same SRAM before the next consumer accesses the data.
-
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{fig/pea.pdf}
-  \caption{DARE mechanisms for temporal QK head packing and boundary-aware segmented PV reduction.}
+  \caption{Adaptive dataflows of the shared PEA: (a) conventional spatial/linear mapping; (b) temporal $QK^{\mathsf T}$ uses four 9-lane head groups; and (c) temporal $PV$ packs adjacent reductions with V replay and tagged segmented reduction.}
   \label{fig:dare_modes}
 \end{figure}
 
-For temporal $PV$ with $T=19$, one head contains $19^2=361$ score products. DARE packs them into 11 beats per output group, raising useful-product occupancy from $19/36=52.8\%$ in a row-padded mapping to $361/(11\times36)=91.2\%$. Two output groups therefore require 22 beats per head instead of 38. This packing converts padding bubbles into useful products from adjacent reductions while preserving reduction boundaries through the tag and accumulator state.
+\subsection{Architecture and Mode Control}
+Fig.~\ref{fig:dare_arch} locates the adaptive mechanisms in the accelerator. At the top level [Fig.~\ref{fig:dare_arch}(a)], DDR traffic is staged through local PEA/VCU SRAMs and dispatched to a shared $36\times36$ INT8 PEA and a 36-MAC FP16 VCU. DARE adds no separate temporal engine; it specializes address generation, lane ownership, replay, and reduction control around the shared PEA.
 
-\subsection{Replay and Transpose-Free Temporal Access}
-DARE avoids an explicit K/V transpose by moving the temporal permutation into address generation and lane-local replay. For S$\times$V, instruction fields provide the score-buffer base and V-replay weight base. A lane-local V cache holds one 36-position V tile; the temporal phase circularly remaps its entries into the 36 product slots, so a packed score stream receives the matching V row without rewriting the SRAM layout. Each output-channel group restarts from the same score-row base, while the cached V beat is replayed across reduction boundaries. These controls support both DARE modes without adding a second PEA or a transpose buffer.
+Fig.~\ref{fig:dare_arch}(b) shows the control path. Existing GEMM fields configure the QACT AGU/Q Router, $4\times9$ Lane Mapper, and Weight/K/V AGU + Replay. Standard mode bypasses these controls. Temporal $QK^{\mathsf T}$ changes lane ownership, whereas temporal $PV$ activates tagged reduction, persistent accumulation, and deferred writeback. Fig.~\ref{fig:dare_arch}(c) shows that the VCU remains unchanged because DARE restores conventional contiguous interfaces before handoff.
+
+\subsection{Shared-PEA Dataflows}
+Fig.~\ref{fig:dare_modes}(a) shows the conventional mapping: output dimension $N$ spans 36 lanes and reduction dimension $K$ is accumulated inside each lane. DARE preserves this interface and remaps only the temporal dimension when it becomes inefficient on either axis.
+
+\subsection{Output-Axis Adaptation for $QK^{\mathsf T}$}
+Temporal $QK^{\mathsf T}$ places sequence length on the output axis. With one head owning all 36 lanes, $T=19$ uses only $19/36=52.8\%$ of them. In Fig.~\ref{fig:dare_modes}(b), the $4\times9$ mapper partitions the PEA into four head groups H0--H3, each consuming nine key positions per tile while Q/K delivery overlaps. Three tiles cover positions 0--18, raising useful occupancy to $19/27=70.4\%$; longer sequences iterate the same tiled mapping. Completed dot products are drained in conventional order, preserving the downstream interface.
+
+\subsection{Reduction-Axis Adaptation for $PV$}
+In $PV$, the temporal dimension moves to the reduction axis, so DARE switches from lane partitioning to boundary-aware packing [Fig.~\ref{fig:dare_modes}(c)]. Products from adjacent rows share one 36-product beat; V entries are replayed to matching slots, and row tags prevent cross-row accumulation. A persistent accumulator carries a row across beats, while dual-result writeback handles beats that finish two rows without duplicating the reduction array or OFMAP SRAM port.
+
+For $T=19$, one head contains $19^2=361$ products. Row padding uses only 19 of 36 slots per beat (52.8\%), whereas packed execution needs 11 beats, giving $361/(11\times36)=91.2\%$ useful-product occupancy. Thus Fig.~\ref{fig:dare_modes}(b) and (c) capture the DARE principle: the same PEA switches between output-axis remapping and reduction-axis packing as the variable dimension moves across the two attention GEMMs.
