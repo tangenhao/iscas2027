@@ -26,6 +26,16 @@ Video Diffusion Transformers}
 % \IEEEauthorblockA{Affiliation and email}
 % }
 
+\author{
+\IEEEauthorblockN{
+Enhao Tang, Wei Li, and Jun Lin$^{*}$
+}
+\IEEEauthorblockA{
+\textit{School of Electronic Science and Technology, Nanjing University, Nanjing, China}\\
+$^{*}$Corresponding author: Jun Lin (jlin@nju.edu.cn)
+}
+}
+
 \begin{document}
 \maketitle
 
@@ -36,7 +46,8 @@ Video Diffusion Transformers (VDiTs) repeatedly execute expensive spatial--tempo
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{fig/overview.pdf}
-  \caption{Q-DARE co-design overview: QAC aligns cache decisions with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal shape asymmetry.}
+  % \caption{Q-DARE co-design overview: QAC aligns cache decisions with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal shape asymmetry.}
+  \caption{Q-DARE co-design overview using a 64-frame, $512\times512$ resolution example ($T=19$, $S=1024$ after VAE tokenization, with batch size 2 for classifier-free guidance): QAC aligns cache decisions with quantized execution, while DARE adapts the shared attention datapath to spatial/temporal shape asymmetry.}
   \label{fig:overview}
 \end{figure*}
 

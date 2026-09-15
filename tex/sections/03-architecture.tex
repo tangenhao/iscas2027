@@ -2,26 +2,22 @@
 \section{DARE: Dimension-Adaptive Reconfigurable Engine}
 \label{sec:hardware}
 
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=\textwidth]{fig/hardware-overview.pdf}
-  \caption{DARE hardware organization: (a) shared PEA/VCU hierarchy; (b) mode-controlled address generation, $4\times9$ lane mapping, replay, and segmented reduction around the same 36 lanes; and (c) the unchanged FP16 VCU path.}
-  \label{fig:dare_arch}
-\end{figure*}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\columnwidth]{fig/pea.pdf}
-  \caption{Adaptive dataflows of the shared PEA: (a) conventional spatial/linear mapping; (b) temporal $QK^{\mathsf T}$ uses four 9-lane head groups; and (c) temporal $PV$ packs adjacent reductions with V replay and tagged segmented reduction.}
-  \label{fig:dare_modes}
-\end{figure}
-
 \subsection{Architecture and Mode Control}
 Fig.~\ref{fig:dare_arch} locates the adaptive mechanisms in the accelerator. At the top level [Fig.~\ref{fig:dare_arch}(a)], DDR traffic is staged through local PEA/VCU SRAMs and dispatched to a shared $36\times36$ INT8 PEA and a 36-MAC FP16 VCU. DARE adds no separate temporal engine; it specializes address generation, lane ownership, replay, and reduction control around the shared PEA.
 
 Fig.~\ref{fig:dare_arch}(b) shows the control path. Existing GEMM fields configure the QACT AGU/Q Router, $4\times9$ Lane Mapper, and Weight/K/V AGU + Replay. Standard mode bypasses these controls. Temporal $QK^{\mathsf T}$ changes lane ownership, whereas temporal $PV$ activates tagged reduction, persistent accumulation, and deferred writeback. Fig.~\ref{fig:dare_arch}(c) shows that the VCU remains unchanged because DARE restores conventional contiguous interfaces before handoff.
 
 \subsection{Shared-PEA Dataflows}
+
+\begin{figure}[!t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig/pea.pdf}
+  \caption{Adaptive dataflows of the shared PEA: (a) conventional spatial/linear mapping; (b) temporal $QK^{\mathsf T}$ uses four 9-lane head groups; and (c) temporal $PV$ packs adjacent reductions with V replay and tagged segmented reduction.}
+  \label{fig:dare_modes}
+\end{figure}
+
+
+
 Fig.~\ref{fig:dare_modes}(a) shows the conventional mapping: output dimension $N$ spans 36 lanes and reduction dimension $K$ is accumulated inside each lane. DARE preserves this interface and remaps only the temporal dimension when it becomes inefficient on either axis.
 
 \subsection{Output-Axis Adaptation for $QK^{\mathsf T}$}

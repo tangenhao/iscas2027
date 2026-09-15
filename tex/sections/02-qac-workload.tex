@@ -23,6 +23,13 @@ QAC evaluates cache relevance in the same numerical domain as the recompute path
 \end{equation}
 where $Q_s(\cdot)$ and $D(\cdot)$ denote quantization and dequantization. The same calibrated quantizer is therefore used both to execute the model and to determine whether execution is needed, exposing the cache predictor to the same rounding and clipping effects as the recomputed path. QAC changes the decision domain without introducing another precision mode; all recomputed GEMMs and attention operators remain on the fixed W8A8/INT8 datapath.
 
+\begin{figure*}[!t]
+  \centering
+  \includegraphics[width=\textwidth]{fig/hardware-overview.pdf}
+  \caption{DARE hardware organization: (a) Top-level accelerator architecture; (b) The microarchitecture of the DARE PEA; and (c) the structure of the VCU.}
+  \label{fig:dare_arch}
+\end{figure*}
+
 \subsection{Calibration and Runtime Policy}
 The raw quantized-domain difference is further calibrated against the observed output change of the quantized model. Offline, QAC fits a lightweight timestep-aware mapping
 \begin{equation}
